@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   ArrowRight,
@@ -24,6 +25,7 @@ import {
   WorkspaceTitle,
 } from "@/components/soc/flagship-ui";
 import { dashboardMetrics, incidentQueue } from "@/lib/demo-soc-data";
+import { cn } from "@/lib/utils";
 
 const attention = [
   { title: "Containment approval", detail: "Isolate WIN-7F3G2K9H8", age: "2m", tone: "red" as const },
@@ -39,9 +41,16 @@ const agentActivity = [
   { name: "Response", task: "Waiting for approval", state: "Paused", icon: Bot },
 ];
 
+const ranges = ["Last 24 hours", "Last 7 days", "Last 30 days"];
+
 export function DashboardWorkspace() {
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState(incidentQueue[0].id);
+  const [rangeIndex, setRangeIndex] = useState(0);
+  const [selectedAttention, setSelectedAttention] = useState(attention[0].title);
+  const [notice, setNotice] = useState("");
   const selected = incidentQueue.find((item) => item.id === selectedId) ?? incidentQueue[0];
+  const range = ranges[rangeIndex];
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-background pb-6">
@@ -49,9 +58,12 @@ export function DashboardWorkspace() {
         eyebrow="Aegis command center · Live"
         title="Security operations overview"
         description="Prioritized risk, active investigations, and decisions that need your attention."
-        actions={<><Button variant="secondary" size="sm"><Clock3 /> Last 24 hours</Button><Button variant="primary" size="sm"><Plus /> New investigation</Button></>}
+        actions={<><Button variant="secondary" size="sm" onClick={() => setRangeIndex((value) => (value + 1) % ranges.length)}><Clock3 /> {range}</Button><Button variant="primary" size="sm" onClick={() => router.push("/investigations")}><Plus /> New investigation</Button></>}
       />
       <MetricStrip metrics={dashboardMetrics} />
+      {notice ? (
+        <div className="mx-4 mt-4 rounded-control border border-primary/25 bg-primary/10 px-3 py-2 text-sm text-primary lg:mx-5">{notice}</div>
+      ) : null}
       <div className="grid gap-4 p-4 lg:p-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.75fr)]">
         <div className="grid min-w-0 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
           <Panel title="Priority queue" eyebrow="Live incidents" action={<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">247</span>}>
@@ -72,7 +84,7 @@ export function DashboardWorkspace() {
               <div className="mt-4 border-t border-border pt-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div><p className="text-sm font-medium">Recommended: isolate the source host</p><p className="mt-1 text-xs text-muted-foreground">Human approval required · action fully audited</p></div>
-                  <div className="flex gap-2"><Button size="sm" variant="secondary">Review evidence</Button><Button size="sm" variant="primary">Open investigation <ArrowRight /></Button></div>
+                  <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => router.push(`/investigations?incident=${selected.id}&tab=evidence`)}>Review evidence</Button><Button size="sm" variant="primary" onClick={() => router.push(`/investigations?incident=${selected.id}`)}>Open investigation <ArrowRight /></Button></div>
                 </div>
               </div>
             </div>
@@ -82,18 +94,17 @@ export function DashboardWorkspace() {
         <div className="space-y-4">
           <Panel title="Needs human attention" eyebrow="4 items">
             <div className="divide-y divide-border">
-              {attention.map((item) => <button key={item.title} type="button" className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-primary/[0.035]"><span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-surface"><ShieldAlert className="size-4 text-high" /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{item.title}</span><span className="block truncate text-xs text-muted-foreground">{item.detail}</span></span><span className="text-[10px] text-muted-foreground">{item.age}</span><StatusLabel tone={item.tone}>{item.tone === "red" ? "Urgent" : item.tone === "amber" ? "Review" : "Issue"}</StatusLabel></button>)}
+              {attention.map((item) => <button key={item.title} type="button" onClick={() => { setSelectedAttention(item.title); setNotice(`${item.title} selected for review.`); }} className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-primary/[0.035]", selectedAttention === item.title ? "bg-primary/[0.055]" : "")}><span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-surface"><ShieldAlert className="size-4 text-high" /></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{item.title}</span><span className="block truncate text-xs text-muted-foreground">{item.detail}</span></span><span className="text-[10px] text-muted-foreground">{item.age}</span><StatusLabel tone={item.tone}>{item.tone === "red" ? "Urgent" : item.tone === "amber" ? "Review" : "Issue"}</StatusLabel></button>)}
             </div>
           </Panel>
           <Panel title="Argus crew" eyebrow="Autonomous operations" action={<StatusLabel tone="green">Operational</StatusLabel>}>
             <div className="divide-y divide-border">
               {agentActivity.map(({ name, task, state, icon: Icon }) => <div key={name} className="flex items-center gap-3 px-4 py-3"><span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="text-sm font-medium">{name}</p><p className="truncate text-xs text-muted-foreground">{task}</p></div><StatusLabel tone={state === "Running" ? "green" : "amber"}>{state}</StatusLabel></div>)}
             </div>
-            <div className="flex items-center justify-between border-t border-border px-4 py-3"><span className="flex items-center gap-2 text-xs text-muted-foreground"><CheckCircle2 className="size-3.5 text-low" /> 128 actions audited today</span><DetailLink>Open Argus</DetailLink></div>
+            <div className="flex items-center justify-between border-t border-border px-4 py-3"><span className="flex items-center gap-2 text-xs text-muted-foreground"><CheckCircle2 className="size-3.5 text-low" /> 128 actions audited today</span><DetailLink onClick={() => router.push("/assistant?context=Argus%20crew")}>Open Argus</DetailLink></div>
           </Panel>
         </div>
       </div>
     </div>
   );
 }
-

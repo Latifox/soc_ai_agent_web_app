@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { PageStub } from "@/components/page-stub";
+import { AssetsWorkspace } from "@/features/workspaces/assets-workspace";
 
 export const metadata: Metadata = { title: "Assets" };
 
 export default function AssetsPage() {
-  return <PageStub href="/assets" />;
+  return <AssetsWorkspace />;
 }

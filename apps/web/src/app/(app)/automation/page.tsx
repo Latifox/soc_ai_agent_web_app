@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { PageStub } from "@/components/page-stub";
+import { AutomationWorkspace } from "@/features/workspaces/automation-workspace";
 
 export const metadata: Metadata = { title: "Automation" };
 
 export default function AutomationPage() {
-  return <PageStub href="/automation" />;
+  return <AutomationWorkspace />;
 }

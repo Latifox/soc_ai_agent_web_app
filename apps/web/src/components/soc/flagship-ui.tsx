@@ -277,7 +277,17 @@ export function ConfidenceMeter({ value }: { value: number }) {
   );
 }
 
-export function ApprovalCard() {
+export function ApprovalCard({
+  status = "pending",
+  onApprove,
+  onReject,
+}: {
+  status?: "pending" | "approved" | "rejected";
+  onApprove?: () => void;
+  onReject?: () => void;
+}) {
+  const approved = status === "approved";
+  const rejected = status === "rejected";
   return (
     <div className="border-t border-border bg-primary/[0.035] p-4">
       <div className="flex items-center gap-2 text-primary"><Sparkles className="size-4" aria-hidden="true" /><span className="soc-eyebrow text-primary">Argus recommendation</span></div>
@@ -288,14 +298,28 @@ export function ApprovalCard() {
         <p className="flex items-center gap-2"><CheckCircle2 className="size-3.5 text-primary" /> Suspend session <code className="font-mono">jsmith</code></p>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Button variant="secondary" size="sm">Reject</Button>
-        <Button variant="primary" size="sm"><ShieldAlert aria-hidden="true" /> Approve</Button>
+        <Button variant="secondary" size="sm" disabled={approved || rejected} onClick={onReject}>Reject</Button>
+        <Button variant="primary" size="sm" disabled={approved || rejected} onClick={onApprove}><ShieldAlert aria-hidden="true" /> Approve</Button>
       </div>
-      <p className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground"><Clock3 className="size-3" /> Approval is audited and executed by Aegis.</p>
+      <p className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+        <Clock3 className="size-3" />
+        {approved ? "Approved and queued for execution." : rejected ? "Recommendation rejected and logged." : "Approval is audited and executed by Aegis."}
+      </p>
     </div>
   );
 }
 
-export function DetailLink({ children }: { children: ReactNode }) {
-  return <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-accent">{children}<ChevronRight className="size-3" /></button>;
+export function DetailLink({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-accent">
+      {children}
+      <ChevronRight className="size-3" />
+    </button>
+  );
 }

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { PageStub } from "@/components/page-stub";
+import { RulesWorkspace } from "@/features/workspaces/rules-workspace";
 
 export const metadata: Metadata = { title: "Rules" };
 
 export default function RulesPage() {
-  return <PageStub href="/rules" />;
+  return <RulesWorkspace />;
 }

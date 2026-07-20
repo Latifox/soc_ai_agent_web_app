@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { PageStub } from "@/components/page-stub";
+import { IntegrationsWorkspace } from "@/features/workspaces/integrations-workspace";
 
 export const metadata: Metadata = { title: "Integrations" };
 
 export default function IntegrationsPage() {
-  return <PageStub href="/integrations" />;
+  return <IntegrationsWorkspace />;
 }

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { PageStub } from "@/components/page-stub";
+import { CasesWorkspace } from "@/features/workspaces/cases-workspace";
 
 export const metadata: Metadata = { title: "Cases" };
 
 export default function CasesPage() {
-  return <PageStub href="/cases" />;
+  return <CasesWorkspace />;
 }
