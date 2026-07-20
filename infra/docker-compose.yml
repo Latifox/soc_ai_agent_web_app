@@ -1,0 +1,88 @@
+# Aegis dev stack (local-first). App Postgres + Auth come from the Supabase CLI
+# (`supabase start`), NOT this file. ClickHouse runs as local chdb (no container).
+# Object archive is local ./data (no MinIO/S3). See docs/02, docs/10.
+name: aegis
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Aegis_dev_123
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+    ports: ["9200:9200"]
+    volumes: ["opensearch-data:/usr/share/opensearch/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # OpenSearch Agent Server — agent tool/MCP layer (docs/10). Dev-bootstrap via pip;
+  # replace with a pinned image/Dockerfile for prod.
+  opensearch-agent-server:
+    image: python:3.12-slim
+    command: >
+      sh -c "pip install --no-cache-dir opensearch-agent-server &&
+             opensearch-agent-server --with-mcp --host 0.0.0.0 --port 8001"
+    environment:
+      - OPENSEARCH_URL=http://opensearch:9200
+    ports: ["8001:8001"]
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  vector:
+    image: timberio/vector:0.41.1-debian
+    volumes:
+      - ./vector:/etc/vector:ro
+      - ./data:/data
+    command: ["--config-dir", "/etc/vector"]
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  # LLM observability. Uses its own Postgres (not the app DB).
+  langfuse-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=langfuse
+      - POSTGRES_PASSWORD=langfuse
+      - POSTGRES_DB=langfuse
+    volumes: ["langfuse-db:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  langfuse:
+    image: langfuse/langfuse:2
+    environment:
+      - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      - NEXTAUTH_URL=http://localhost:3001
+      - NEXTAUTH_SECRET=dev-langfuse-secret
+      - SALT=dev-langfuse-salt
+      - TELEMETRY_ENABLED=false
+    ports: ["3001:3000"]
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+
+volumes:
+  opensearch-data:
+  langfuse-db:

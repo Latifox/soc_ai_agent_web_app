@@ -1,0 +1,38 @@
+"""``/api/v1`` router (stub).
+
+Feature routers (rules, incidents, cases, assets, integrations, …) mount here as
+their backend tasks land. For now it exposes an unauthenticated root and a
+tenant-protected ``/whoami`` that exercises the auth + tenant-context path.
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+from apps.api.deps import CurrentTenant
+from apps.api.errors import Problem
+
+router = APIRouter(tags=["v1"])
+
+
+@router.get("/")
+async def v1_root() -> dict[str, str]:
+    """API v1 root — liveness of the versioned surface."""
+    return {"service": "aegis-api", "version": "v1"}
+
+
+@router.get(
+    "/whoami",
+    responses={
+        401: {"model": Problem, "description": "Missing or invalid credentials"},
+        403: {"model": Problem, "description": "No tenant claim"},
+    },
+)
+async def whoami(tenant: CurrentTenant) -> dict[str, object]:
+    """Echo the resolved tenant context (protected route)."""
+    return {
+        "tenant_id": tenant.tenant_id,
+        "user_id": tenant.user_id,
+        "role": tenant.role,
+        "permissions": list(tenant.permissions),
+    }

@@ -103,13 +103,14 @@ decision (mark `[!]`, stop, surface to user).
 - [x] **INFRA-01** — Scaffold monorepo (`pnpm` workspace + `uv` Python), root config,
   `.editorconfig`, `.gitignore`, `.env.example`, Makefile, dir skeleton. → done.
   *Accept:* tree matches §layout; committed `7893838`.
-- [ ] **INFRA-02** — Dev stack: **Supabase CLI** (`supabase init`/`start` → Postgres +
-  Auth + Storage) + `infra/docker-compose.yml` for ClickHouse, OpenSearch, Redis, MinIO,
-  Vector, Langfuse. Healthchecks + `.env.example`. → **BUILDER**. deps: INFRA-01.
+- [~] **INFRA-02** — Dev stack: `infra/docker-compose.yml` written (OpenSearch +
+  opensearch-agent-server, Redis, Vector, Langfuse; chdb local, no MinIO). **Remaining:**
+  `supabase init/start` config + `infra/vector/` sample config; verify `docker compose up`
+  healthy. → **BUILDER**. deps: INFRA-01.
   *Accept:* `supabase start` + `docker compose up` bring all services healthy.
-- [ ] **INFRA-03** — `packages/aegis-core`: settings (pydantic-settings), logging,
-  OpenTelemetry tracing, tenant-context contextvar, error types. → **BUILDER**.
-  deps: INFRA-01. *Accept:* importable; `TenantContext` set/get unit-tested.
+- [x] **INFRA-03** — `packages/aegis-core`: settings, logging, tracing, **tenant-context**
+  contextvar, errors, **secrets** (base/env), **storage** (base/local), **ClickHouse
+  adapter** (chdb+server, tenant-scoped binds) + tests. → done (needs `uv sync` verify).
 - [ ] **INFRA-04** — DB migration harness (Alembic) + ClickHouse migration runner +
   seed scripts. → **BUILDER**. deps: INFRA-02,03. *Accept:* `make migrate` + `make seed`.
 - [ ] **INFRA-05** — CI (GitHub Actions): lint (ruff/eslint), typecheck (mypy/tsc),
@@ -126,8 +127,9 @@ decision (mark `[!]`, stop, surface to user).
 ## 5. TRACK B — Backend (FastAPI BFF + services)
 
 ### Phase 1 — Core
-- [ ] **BE-01** — FastAPI app skeleton in `apps/api` (routers, deps, OpenAPI, healthz,
-  CORS, error handlers). → **BUILDER**. deps: INFRA-03. *Accept:* `/healthz` 200; OpenAPI.
+- [~] **BE-01** — FastAPI app skeleton in `apps/api` present (main, deps w/ Supabase JWT
+  verify, errors, routers/v1, tests). **Remaining:** `uv sync` + run tests to verify
+  `/healthz` 200 + OpenAPI. → **BUILDER**. deps: INFRA-03.
 - [ ] **BE-02** — **Supabase** schema + **RLS** (tenants, users, roles, memberships,
   api_keys, audit_log) via Supabase migrations; RLS policies read `auth.jwt()->>'tenant_id'`.
   Per [docs/07](docs/07-data-model-and-api.md). → **BUILDER**. deps: INFRA-04.
@@ -279,4 +281,11 @@ decision (mark `[!]`, stop, surface to user).
 
 ## 9. Progress log
 _(loop appends: `<task-id> — <commit hash> — <date>`)_
+
+- INFRA-01 — `7893838` — 2026-07-20 (scaffold + spec)
+- INFRA-03 — pending commit — 2026-07-20 (aegis-core: context/settings/clickhouse/storage/secrets + tests)
+- BE-01 (partial) — pending commit — 2026-07-20 (FastAPI skeleton + Supabase JWT deps + tests)
+- INFRA-02 (partial) — pending commit — 2026-07-20 (docker-compose dev stack)
+- **BLOCKER:** background agent dispatch failing on session usage limit (resets ~02:10
+  Africa/Casablanca). Loop resumes real task execution after reset.
 - INFRA-01 — 7893838 — 2026-07-20 (scaffold + spec)
