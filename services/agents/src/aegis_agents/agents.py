@@ -18,6 +18,7 @@ from aegis_agents.models import balanced, fast, reasoner
 from aegis_agents.tools import (
     clickhouse_query,
     ioc_reputation,
+    opensearch_search,
     rule_backtest,
     rule_validate,
     soar_block_ip,
@@ -58,7 +59,7 @@ def build_investigation(db: PostgresDb | None = None) -> Agent:
         name="Investigation",
         role="Enrich alerts, query telemetry, build a MITRE-mapped attack narrative.",
         model=reasoner(),
-        tools=[clickhouse_query, ioc_reputation],
+        tools=[clickhouse_query, opensearch_search, ioc_reputation],
         tool_hooks=HOOKS,
         db=db,
         instructions=ins.INVESTIGATION,

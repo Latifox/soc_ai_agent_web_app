@@ -9,6 +9,7 @@ isolation via the tenant context. The OpenSearch tool layer is the upstream
 from __future__ import annotations
 
 from aegis_agents.tools.clickhouse import clickhouse_query
+from aegis_agents.tools.opensearch import opensearch_search
 from aegis_agents.tools.rules import rule_backtest, rule_validate
 from aegis_agents.tools.soar import (
     soar_block_ip,
@@ -34,6 +35,7 @@ __all__ = [
     "build_opensearch_mcp",
     "clickhouse_query",
     "ioc_reputation",
+    "opensearch_search",
     "rule_backtest",
     "rule_validate",
     "soar_block_ip",

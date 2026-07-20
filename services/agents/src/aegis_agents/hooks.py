@@ -12,7 +12,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from aegis_core import get_logger, get_tenant_context
+from aegis_core import audit_chain, get_logger, get_tenant_context
 from aegis_core.errors import TenantContextError
 
 log = get_logger(__name__)
@@ -45,12 +45,29 @@ def audit_hook(
     ctx = get_tenant_context()
     tenant_id = ctx.tenant_id if ctx else None
     started = time.monotonic()
-    log.info("agent.tool.start", tool=function_name, tenant_id=tenant_id, args=_redact(arguments))
+    redacted = _redact(arguments)
+    log.info("agent.tool.start", tool=function_name, tenant_id=tenant_id, args=redacted)
     try:
         result = function_call(**arguments)
     except Exception as exc:  # noqa: BLE001 - re-raised after auditing
+        if tenant_id:
+            audit_chain.record(
+                tenant_id=tenant_id,
+                actor="argus",
+                actor_type="agent",
+                action=function_name,
+                meta={"status": "error", "error": str(exc), "args": redacted},
+            )
         log.error("agent.tool.error", tool=function_name, tenant_id=tenant_id, error=str(exc))
         raise
+    if tenant_id:
+        audit_chain.record(
+            tenant_id=tenant_id,
+            actor="argus",
+            actor_type="agent",
+            action=function_name,
+            meta={"status": "ok", "args": redacted},
+        )
     log.info(
         "agent.tool.ok",
         tool=function_name,

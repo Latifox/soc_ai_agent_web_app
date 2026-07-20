@@ -7,6 +7,7 @@ root; submodules are an implementation detail.
 
 from __future__ import annotations
 
+from aegis_core.audit import AuditChain, AuditRecord, audit_chain, compute_hash
 from aegis_core.clickhouse import (
     ClickHouseBackend,
     build_tenant_scoped_query,
@@ -33,6 +34,7 @@ from aegis_core.errors import (
     TenantIsolationError,
 )
 from aegis_core.logging import configure_logging, get_logger
+from aegis_core.opensearch import OpenSearchClient, get_opensearch
 from aegis_core.secrets import SecretsBackend, get_secrets
 from aegis_core.settings import Settings, get_settings
 from aegis_core.storage import LocalStorage, StorageBackend, get_storage
@@ -40,11 +42,16 @@ from aegis_core.tracing import configure_tracing, get_tracer
 
 __all__ = [
     "AegisError",
+    "AuditChain",
+    "AuditRecord",
     "AuthError",
     "ClickHouseBackend",
+    "audit_chain",
+    "compute_hash",
     "ConfigurationError",
     "LocalStorage",
     "NotFoundError",
+    "OpenSearchClient",
     "PermissionDeniedError",
     "SecretsBackend",
     "SecretsError",
@@ -61,6 +68,7 @@ __all__ = [
     "current_tenant_id",
     "get_clickhouse",
     "get_logger",
+    "get_opensearch",
     "get_secrets",
     "get_settings",
     "get_storage",
