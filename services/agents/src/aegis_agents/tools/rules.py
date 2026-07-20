@@ -52,9 +52,7 @@ def rule_backtest(rule_yaml: str, days: int = 30) -> dict[str, Any]:
     """
     log.info("rule.backtest", tenant_id=current_tenant_id(), days=days)
     try:
-        from aegis_detection.compile import compile_rule  # noqa: PLC0415
         from aegis_detection.run import backtest  # noqa: PLC0415
     except ImportError:
         return {"matches": None, "sample": [], "note": "detection engine not installed yet"}
-    compiled = compile_rule(yaml.safe_load(rule_yaml))
-    return backtest(compiled, days=days, tenant_id=current_tenant_id())
+    return backtest(yaml.safe_load(rule_yaml), days=days, tenant_id=current_tenant_id())
