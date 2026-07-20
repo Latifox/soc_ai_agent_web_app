@@ -296,6 +296,13 @@ _(loop appends: `<task-id> — <commit hash> — <date>`)_
   compiler + backtest + tests)
 - BE-10/13 (partial) — `7c82f8a` — 2026-07-20 (rules/incidents/cases routers + RBAC +
   tenant store)
-- **Next (after `uv sync`/`pnpm install` verify):** BE-02 Supabase schema+RLS, BE-03 real
-  JWKS, AI-04 HITL approval endpoint wiring, FE-02 Supabase Auth, INFRA-04 migrations.
+- BE-02/06, INFRA-02/04 (data plane) — `c960a75` — 2026-07-20 (Supabase schema+RLS,
+  ClickHouse DDL, migrate/seed, Vector config, supabase config/seed)
+- AI-04, BE-08/14/16 (partial) — `0f04595` — 2026-07-20 (approvals/integrations/assets/
+  autonomy routers + store + schemas)
+- INFRA-05 — `c6df6ae` — 2026-07-20 (CI workflow + rules CRUD/isolation/RBAC test)
+- BE-12 (partial) — pending commit — 2026-07-20 (detection scheduler: run_one/run_tenant)
+- **Next (after `uv sync`/`pnpm install` verify):** BE-03 real JWKS + audit hash-chain
+  (SEC-02), detections emit path, AI-05 AgentOS approval wiring, FE-02 Supabase Auth,
+  FE-04/06/07 wire pages to /api/v1, packages/mcp servers (AI-01).
 - INFRA-01 — 7893838 — 2026-07-20 (scaffold + spec)
