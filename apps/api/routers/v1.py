@@ -11,8 +11,13 @@ from fastapi import APIRouter
 
 from apps.api.deps import CurrentTenant
 from apps.api.errors import Problem
+from apps.api.routers import cases, incidents, rules
 
 router = APIRouter(tags=["v1"])
+
+router.include_router(rules.router)
+router.include_router(incidents.router)
+router.include_router(cases.router)
 
 
 @router.get("/")
