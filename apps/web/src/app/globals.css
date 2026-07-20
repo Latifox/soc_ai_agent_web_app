@@ -1,0 +1,224 @@
+@import "tailwindcss";
+
+/* next-themes toggles the `dark` class on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ *
+ * Aegis design tokens (DESIGN.md). Light is the base; dark overrides. *
+ * ------------------------------------------------------------------ */
+:root {
+  /* chrome */
+  --background: #ffffff;
+  --background-muted: #fafafa;
+  --surface: #f7f7f8;
+  --surface-raised: #ffffff;
+  --foreground: #0a0a0b;
+  --muted: #fafafa;
+  --muted-foreground: #71717a;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #7c3aed;
+
+  /* shadcn-compatible aliases */
+  --card: #ffffff;
+  --card-foreground: #0a0a0b;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0b;
+  --secondary: #f7f7f8;
+  --secondary-foreground: #0a0a0b;
+
+  /* brand */
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-foreground: #ffffff;
+  --accent: #8b5cf6;
+  --accent-foreground: #ffffff;
+
+  /* severity / status semantics */
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --critical: #dc2626;
+  --high: #ef4444;
+  --medium: #f59e0b;
+  --low: #10b981;
+  --info: #3b82f6;
+  --status-open: #7c3aed;
+  --status-progress: #f59e0b;
+  --status-resolved: #10b981;
+
+  /* radii */
+  --radius: 0.75rem;
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-pill: 9999px;
+
+  /* elevation */
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 3px 0 rgb(0 0 0 / 0.06);
+}
+
+.dark {
+  --background: #0b0b0f;
+  --background-muted: #141418;
+  --surface: #141418;
+  --surface-raised: #18181b;
+  --foreground: #fafafa;
+  --muted: #141418;
+  --muted-foreground: #a1a1aa;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #8b5cf6;
+
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #141418;
+  --popover-foreground: #fafafa;
+  --secondary: #141418;
+  --secondary-foreground: #fafafa;
+
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-foreground: #ffffff;
+  --accent: #8b5cf6;
+  --accent-foreground: #ffffff;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --critical: #dc2626;
+  --high: #ef4444;
+  --medium: #f59e0b;
+  --low: #10b981;
+  --info: #3b82f6;
+  --status-open: #7c3aed;
+  --status-progress: #f59e0b;
+  --status-resolved: #10b981;
+
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px 0 rgb(0 0 0 / 0.4);
+}
+
+/* ------------------------------------------------------------------ *
+ * Map tokens to Tailwind theme (inline => utilities read the var,     *
+ * so `dark` overrides flow through automatically).                    *
+ * ------------------------------------------------------------------ */
+@theme inline {
+  --color-background: var(--background);
+  --color-background-muted: var(--background-muted);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-critical: var(--critical);
+  --color-high: var(--high);
+  --color-medium: var(--medium);
+  --color-low: var(--low);
+  --color-info: var(--info);
+  --color-status-open: var(--status-open);
+  --color-status-progress: var(--status-progress);
+  --color-status-resolved: var(--status-resolved);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --radius-pill: var(--radius-pill);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+
+  --shadow-card: var(--shadow-card);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "JetBrains Mono",
+    "SFMono-Regular", monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 14px; /* operator density — DESIGN.md keeps body at 14px */
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv11", "ss01";
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Minimal primitives shared by StatusPill / Card (kept in CSS so the  *
+ * severity color is a single source of truth).                        *
+ * ------------------------------------------------------------------ */
+@layer components {
+  .status-pill {
+    --_pill: var(--pill, var(--color-muted-foreground));
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: var(--radius-pill);
+    padding: 0.125rem 0.5rem;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    color: var(--_pill);
+    background-color: color-mix(in srgb, var(--_pill) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--_pill) 22%, transparent);
+  }
+
+  .status-pill__dot {
+    height: 0.375rem;
+    width: 0.375rem;
+    border-radius: var(--radius-pill);
+    background-color: var(--_pill);
+  }
+
+  .aegis-card {
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .aegis-card.has-rail {
+    border-left-width: 3px;
+    border-left-color: var(--rail, var(--color-border));
+  }
+}
