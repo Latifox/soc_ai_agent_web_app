@@ -81,3 +81,9 @@ class AutonomyPolicyUpsert(BaseModel):
 class ApprovalDecision(BaseModel):
     decision: Literal["approve", "deny"]
 
+
+class SearchRequest(BaseModel):
+    engine: Literal["clickhouse", "opensearch"] = "clickhouse"
+    query: str  # read-only SQL (clickhouse) or Lucene query_string (opensearch)
+    size: int = Field(default=50, ge=1, le=500)
+

@@ -19,6 +19,7 @@ from apps.api.routers import (
     incidents,
     integrations,
     rules,
+    search,
 )
 
 router = APIRouter(tags=["v1"])
@@ -30,6 +31,7 @@ router.include_router(assets.router)
 router.include_router(integrations.router)
 router.include_router(approvals.router)
 router.include_router(autonomy.router)
+router.include_router(search.router)
 
 
 @router.get("/")
