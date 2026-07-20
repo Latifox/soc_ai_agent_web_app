@@ -7,6 +7,7 @@ backtest (``run``). See ``docs/06-detection-engine.md``.
 from __future__ import annotations
 
 from aegis_detection.compile import CompiledRule, compile_rule
+from aegis_detection.correlate import correlate, correlation_key
 from aegis_detection.emit import emit_detection
 from aegis_detection.run import backtest, run_rule
 from aegis_detection.schema import Rule
@@ -17,6 +18,8 @@ __all__ = [
     "Rule",
     "backtest",
     "compile_rule",
+    "correlate",
+    "correlation_key",
     "emit_detection",
     "run_one",
     "run_rule",
