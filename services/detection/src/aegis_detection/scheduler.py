@@ -31,6 +31,12 @@ def run_one(rule: Rule | dict, *, tenant_id: str) -> dict[str, Any]:
         "learning_mode": parsed.learning_mode,
     }
     log.info("detection.run", tenant_id=tenant_id, **{k: summary[k] for k in ("rule_id", "matches", "alert")})
+    if summary["alert"]:
+        from aegis_detection.emit import emit_detection  # noqa: PLC0415
+
+        summary["detection_id"] = emit_detection(
+            tenant_id=tenant_id, rule_id=compiled.rule_id, severity=parsed.severity, rows=rows
+        )
     return summary
 
 
