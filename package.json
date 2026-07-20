@@ -1,0 +1,15 @@
+{
+  "name": "aegis",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Aegis — AI-Native Open XDR & Autonomous SOC Platform",
+  "packageManager": "pnpm@9.12.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "pnpm --filter @aegis/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  }
+}

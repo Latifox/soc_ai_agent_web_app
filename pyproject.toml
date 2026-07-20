@@ -1,0 +1,32 @@
+[project]
+name = "aegis"
+version = "0.0.0"
+description = "Aegis — AI-Native Open XDR & Autonomous SOC Platform (Python services)"
+requires-python = ">=3.13"
+
+# uv workspace: each Python service/package is a member.
+[tool.uv.workspace]
+members = [
+  "apps/api",
+  "services/agents",
+  "services/detection",
+  "services/ingestion",
+  "packages/aegis-core",
+  "packages/mcp/*",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "PL"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["apps", "services", "packages"]
