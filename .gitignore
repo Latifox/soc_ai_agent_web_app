@@ -35,3 +35,7 @@ data/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Agent skills — materialized via `npx skills add`, pinned by skills-lock.json
+.agents/
+.claude/
