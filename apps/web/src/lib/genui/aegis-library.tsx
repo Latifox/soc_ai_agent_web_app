@@ -47,7 +47,7 @@ const AlertCard = defineComponent({
     status: z.enum(["open", "in_progress", "resolved"]),
     summary: z.string().optional(),
   }),
-  render: (p) => (
+  component: ({ props: p }) => (
     <div className={cn("rounded-xl border-l-[3px] border bg-card p-4 shadow-sm", SEVERITY[p.severity])}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-foreground">{p.title}</h3>
@@ -72,7 +72,7 @@ const MitreMappingTable = defineComponent({
       z.object({ tactic: z.string(), technique: z.string(), id: z.string(), evidence: z.string() }),
     ),
   }),
-  render: (p) => (
+  component: ({ props: p }) => (
     <div className="overflow-x-auto rounded-xl border">
       <table className="w-full text-left text-sm">
         <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
@@ -99,7 +99,7 @@ const InvestigationTimeline = defineComponent({
   props: z.object({
     events: z.array(z.object({ ts: z.string(), actor: z.string(), action: z.string() })),
   }),
-  render: (p) => (
+  component: ({ props: p }) => (
     <ol className="relative ml-3 border-l pl-4">
       {p.events.map((e, i) => (
         <li key={i} className="mb-3">
@@ -116,7 +116,7 @@ const RuleDiff = defineComponent({
   name: "RuleDiff",
   description: "A proposed detection rule (YAML) with an Apply action (Vibe Detection).",
   props: z.object({ ruleId: z.string().optional(), yaml: z.string() }),
-  render: (p) => (
+  component: ({ props: p }) => (
     <div className="rounded-xl border">
       <div className="flex items-center justify-between border-b px-3 py-2">
         <span className="text-xs font-medium text-muted-foreground">Proposed rule{p.ruleId ? ` · ${p.ruleId}` : ""}</span>
@@ -138,10 +138,10 @@ const ApprovalPrompt = defineComponent({
   props: z.object({
     runId: z.string(),
     toolName: z.string(),
-    args: z.record(z.any()),
+    args: z.record(z.string(), z.any()),
     risk: z.enum(["low", "medium", "high"]),
   }),
-  render: (p) => (
+  component: ({ props: p }) => (
     <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
       <div className="text-sm font-semibold">Approval required — {p.toolName}</div>
       <pre className="mt-1 overflow-x-auto text-xs text-muted-foreground"><code>{JSON.stringify(p.args, null, 2)}</code></pre>

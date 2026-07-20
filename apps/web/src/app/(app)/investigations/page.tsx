@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { PageStub } from "@/components/page-stub";
+import { InvestigationWorkspace } from "@/features/investigations/investigation-workspace";
 
 export const metadata: Metadata = { title: "Investigations" };
 
 export default function InvestigationsPage() {
-  return <PageStub href="/investigations" />;
+  return <InvestigationWorkspace />;
 }

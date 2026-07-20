@@ -3,40 +3,26 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, PanelLeft } from "lucide-react";
+import {
+  Bell,
+  CircleHelp,
+  Command,
+  PanelLeft,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 
-import { navGroups } from "@/lib/nav";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useSidebar } from "@/components/sidebar-context";
 
-interface Crumb {
-  label: string;
-  href?: string;
-}
-
-function useBreadcrumbs(pathname: string): Crumb[] {
-  for (const group of navGroups) {
-    for (const item of group.items) {
-      if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
-        return [
-          { label: "Aegis", href: "/dashboard" },
-          { label: group.label },
-          { label: item.title, href: item.href },
-        ];
-      }
-    }
-  }
-  return [{ label: "Aegis", href: "/dashboard" }];
-}
-
 export function AppHeader() {
   const pathname = usePathname();
   const { toggle } = useSidebar();
-  const crumbs = useBreadcrumbs(pathname);
+  const pageLabel = pathname.split("/").filter(Boolean).at(-1) ?? "dashboard";
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-sm">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/92 px-3 backdrop-blur-xl sm:px-4">
       <Button
         variant="ghost"
         size="icon"
@@ -46,44 +32,51 @@ export function AppHeader() {
         <PanelLeft aria-hidden="true" />
       </Button>
 
-      <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
-        <ol className="flex items-center gap-1.5 text-sm">
-          {crumbs.map((crumb, index) => {
-            const isLast = index === crumbs.length - 1;
-            return (
-              <li key={`${crumb.label}-${index}`} className="flex items-center gap-1.5">
-                {index > 0 && (
-                  <ChevronRight
-                    className="size-3.5 shrink-0 text-muted-foreground/60"
-                    aria-hidden="true"
-                  />
-                )}
-                {crumb.href && !isLast ? (
-                  <Link
-                    href={crumb.href}
-                    className="truncate text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <span
-                    className={
-                      isLast
-                        ? "truncate font-medium text-foreground"
-                        : "truncate text-muted-foreground"
-                    }
-                    aria-current={isLast ? "page" : undefined}
-                  >
-                    {crumb.label}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+      <div className="relative mx-auto min-w-0 max-w-xl flex-1">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <input
+          type="search"
+          aria-label="Search Aegis"
+          placeholder={`Search ${pageLabel}, incidents, IPs, hashes...`}
+          className="h-9 w-full rounded-control border border-border bg-surface-subtle pl-9 pr-16 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
+        />
+        <span className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:flex">
+          <Command className="size-3" aria-hidden="true" />K
+        </span>
+      </div>
 
-      <ThemeToggle />
+      <div className="ml-auto flex items-center gap-1">
+        <div className="mr-2 hidden items-center gap-2 text-xs lg:flex">
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-low opacity-40" />
+            <span className="relative inline-flex size-2 rounded-full bg-low" />
+          </span>
+          <span className="text-muted-foreground">Systems operational</span>
+        </div>
+        <Button variant="ghost" size="icon" aria-label="Open help" className="hidden sm:inline-flex">
+          <CircleHelp aria-hidden="true" />
+        </Button>
+        <Button variant="ghost" size="icon" aria-label="Open notifications" className="relative">
+          <Bell aria-hidden="true" />
+          <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary ring-2 ring-background" />
+        </Button>
+        <ThemeToggle />
+        <Link
+          href="/settings"
+          className="ml-1 hidden items-center gap-2 border-l border-border pl-3 sm:flex"
+        >
+          <span className="flex size-8 items-center justify-center rounded-full bg-primary/12 text-primary">
+            <ShieldCheck className="size-4" aria-hidden="true" />
+          </span>
+          <span className="hidden leading-tight xl:block">
+            <span className="block text-xs font-semibold">Priya N.</span>
+            <span className="block text-[10px] text-muted-foreground">Tier 2 Analyst</span>
+          </span>
+        </Link>
+      </div>
     </header>
   );
 }

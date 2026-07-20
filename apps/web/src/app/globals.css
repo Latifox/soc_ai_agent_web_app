@@ -1,4 +1,6 @@
+@layer theme, base, openui, components, utilities;
 @import "tailwindcss";
+@import "@openuidev/react-ui/layered/styles/index.css";
 
 /* next-themes toggles the `dark` class on <html>. */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -45,6 +47,12 @@
   --status-open: #7c3aed;
   --status-progress: #f59e0b;
   --status-resolved: #10b981;
+  --success: #059669;
+  --warning: #d97706;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #18181b;
+  --surface-subtle: #f4f4f5;
+  --grid-line: rgb(24 24 27 / 0.055);
 
   /* radii */
   --radius: 0.75rem;
@@ -91,6 +99,12 @@
   --status-open: #7c3aed;
   --status-progress: #f59e0b;
   --status-resolved: #10b981;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --sidebar: #0f0f14;
+  --sidebar-foreground: #f4f4f5;
+  --surface-subtle: #111116;
+  --grid-line: rgb(255 255 255 / 0.035);
 
   --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px 0 rgb(0 0 0 / 0.4);
 }
@@ -134,6 +148,11 @@
   --color-status-open: var(--status-open);
   --color-status-progress: var(--status-progress);
   --color-status-resolved: var(--status-resolved);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-surface-subtle: var(--surface-subtle);
 
   --radius-card: var(--radius-card);
   --radius-control: var(--radius-control);
@@ -157,6 +176,8 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    min-width: 320px;
+    background: var(--color-background);
   }
 
   body {
@@ -169,6 +190,15 @@
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv11", "ss01";
     font-variant-numeric: tabular-nums;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 
   ::selection {
@@ -220,5 +250,97 @@
   .aegis-card.has-rail {
     border-left-width: 3px;
     border-left-color: var(--rail, var(--color-border));
+  }
+
+  .soc-panel {
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-surface-raised) 94%, transparent);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .soc-inset {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-subtle);
+    border-radius: var(--radius-control);
+  }
+
+  .soc-eyebrow {
+    color: var(--color-muted-foreground);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .soc-label {
+    color: var(--color-muted-foreground);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1.25;
+    text-transform: uppercase;
+  }
+
+  .soc-grid-bg {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .soc-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 35%, transparent) transparent;
+  }
+
+  .soc-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .soc-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+    color: var(--color-muted-foreground);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 10px 14px;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .soc-table td {
+    border-top: 1px solid var(--color-border);
+    padding: 12px 14px;
+    vertical-align: middle;
+  }
+
+  .soc-table tbody tr {
+    transition: background-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .soc-table tbody tr:hover {
+    background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  }
+
+  .soc-ring {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 72%, transparent),
+      0 0 0 4px color-mix(in srgb, var(--color-primary) 9%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

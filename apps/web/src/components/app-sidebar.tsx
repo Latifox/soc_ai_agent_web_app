@@ -28,8 +28,8 @@ export function AppSidebar() {
       aria-label="Primary"
       data-collapsed={collapsed}
       className={cn(
-        "sticky top-0 z-30 flex h-screen w-16 shrink-0 flex-col border-r border-border bg-muted transition-[width] duration-200 ease-out",
-        collapsed ? "lg:w-16" : "lg:w-64",
+        "sticky top-0 z-30 flex h-screen w-16 shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out",
+        collapsed ? "lg:w-16" : "lg:w-[13.5rem]",
       )}
     >
       {/* Brand */}
@@ -46,12 +46,12 @@ export function AppSidebar() {
           aria-label="Aegis — Dashboard"
           className="flex items-center gap-2.5 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-primary text-primary-foreground shadow-sm">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-control border border-primary/30 bg-primary/12 text-primary">
             <ShieldCheck className="size-5" aria-hidden="true" />
           </span>
           <span
             className={cn(
-              "text-lg font-bold tracking-tight text-foreground",
+              "text-base font-bold tracking-tight text-sidebar-foreground",
               label,
             )}
           >
@@ -63,13 +63,13 @@ export function AppSidebar() {
       {/* Grouped nav */}
       <nav
         aria-label="Primary navigation"
-        className="flex-1 overflow-y-auto px-2 py-3"
+        className="soc-scrollbar flex-1 overflow-y-auto px-2 py-4"
       >
         {navGroups.map((group) => (
           <div key={group.label} className="mb-4 last:mb-0">
             <p
               className={cn(
-                "px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70",
+                "px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/65",
                 collapsed ? "sr-only" : "sr-only lg:not-sr-only",
               )}
             >
@@ -86,10 +86,10 @@ export function AppSidebar() {
                       aria-current={active ? "page" : undefined}
                       title={item.title}
                       className={cn(
-                        "group flex items-center gap-3 rounded-control py-2 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                        "group relative flex items-center gap-3 rounded-control py-2 text-[13px] font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
                         rowAlign,
                         active
-                          ? "bg-[color-mix(in_srgb,var(--color-primary)_10%,transparent)] text-primary"
+                          ? "bg-[color-mix(in_srgb,var(--color-primary)_13%,transparent)] text-primary shadow-[inset_2px_0_0_var(--color-primary)]"
                           : "text-muted-foreground hover:bg-[color-mix(in_srgb,var(--color-foreground)_5%,transparent)] hover:text-foreground",
                       )}
                     >
@@ -115,7 +115,7 @@ export function AppSidebar() {
       </nav>
 
       {/* Account switcher */}
-      <div className="border-t border-border p-2">
+      <div className="border-t border-border bg-surface-subtle/60 p-2">
         <button
           type="button"
           aria-label="Switch account or organization"
