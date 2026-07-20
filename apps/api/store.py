@@ -55,3 +55,7 @@ class MemoryRepo:
 rules_repo = MemoryRepo()
 incidents_repo = MemoryRepo()
 cases_repo = MemoryRepo()
+integrations_repo = MemoryRepo()
+assets_repo = MemoryRepo()
+approvals_repo = MemoryRepo()
+autonomy_repo = MemoryRepo()

@@ -48,3 +48,36 @@ class CaseCreate(BaseModel):
 
 class CommentCreate(BaseModel):
     body: str
+
+
+class IntegrationCreate(BaseModel):
+    provider: str
+    name: str
+    config: dict[str, object] = Field(default_factory=dict)
+
+
+class IntegrationUpdate(BaseModel):
+    name: str | None = None
+    status: Literal["connected", "disconnected", "error"] | None = None
+    config: dict[str, object] | None = None
+
+
+class AssetCreate(BaseModel):
+    kind: Literal["host", "user", "cloud", "identity"]
+    name: str
+    criticality: Literal["low", "normal", "high", "critical"] = "normal"
+    attributes: dict[str, object] = Field(default_factory=dict)
+
+
+ActionClass = Literal["notify", "ticket", "block_ip", "isolate_host", "disable_user"]
+AutonomyMode = Literal["auto", "approve", "deny"]
+
+
+class AutonomyPolicyUpsert(BaseModel):
+    action_class: ActionClass
+    mode: AutonomyMode
+
+
+class ApprovalDecision(BaseModel):
+    decision: Literal["approve", "deny"]
+
