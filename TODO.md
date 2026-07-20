@@ -30,6 +30,7 @@ commit → repeat.
 | **BUILDER** | `general-purpose` | Primary implementation (multi-file features, services) |
 | **AI-ARCH** | `vercel:ai-architect` | Agno/AgentOS/OpenUI/MCP wiring, agent + streaming code |
 | **FE** | `general-purpose` (+ `vercel:shadcn`, `vercel:nextjs` skills) | Next.js UI, dashboard, editors |
+| **SUPA-FE** | `fullstack-nextjs-supabase-retell` | Supabase Auth + RLS wiring in Next.js (sign-in, sessions, org switch) |
 | **SURGEON** | `caveman:cavecrew-builder` | Bounded 1–2 file edits, config tweaks, renames |
 | **SCOUT** | `caveman:cavecrew-investigator` / `Explore` | Locate code, map deps before a change |
 | **REVIEWER** | `caveman:cavecrew-reviewer` | Review each task's diff before commit |
@@ -102,9 +103,10 @@ decision (mark `[!]`, stop, surface to user).
 - [ ] **INFRA-01** — Scaffold monorepo (`pnpm` workspace + `uv`/`poetry` Python), root
   `README`, `.editorconfig`, `.gitignore`, license. → **BUILDER**. deps: none.
   *Accept:* `pnpm i` and `uv sync` succeed; tree matches §layout.
-- [ ] **INFRA-02** — `infra/docker-compose.yml`: Postgres16, ClickHouse, OpenSearch,
-  Redis, MinIO, Keycloak, Vector, Langfuse. Healthchecks + `.env.example`. → **BUILDER**.
-  deps: INFRA-01. *Accept:* `docker compose up` brings all services healthy.
+- [ ] **INFRA-02** — Dev stack: **Supabase CLI** (`supabase init`/`start` → Postgres +
+  Auth + Storage) + `infra/docker-compose.yml` for ClickHouse, OpenSearch, Redis, MinIO,
+  Vector, Langfuse. Healthchecks + `.env.example`. → **BUILDER**. deps: INFRA-01.
+  *Accept:* `supabase start` + `docker compose up` bring all services healthy.
 - [ ] **INFRA-03** — `packages/aegis-core`: settings (pydantic-settings), logging,
   OpenTelemetry tracing, tenant-context contextvar, error types. → **BUILDER**.
   deps: INFRA-01. *Accept:* importable; `TenantContext` set/get unit-tested.
@@ -115,26 +117,37 @@ decision (mark `[!]`, stop, surface to user).
 - [ ] **INFRA-06** — k8s/Helm chart skeleton (prod topology from [docs/02 §6](docs/02-architecture.md)). → **BUILDER**. deps: INFRA-02. *Accept:* `helm template` renders.
 - [ ] **INFRA-07** — Secrets/Vault abstraction (`aegis-core.secrets`) with dev (env) +
   prod (Vault/KMS) backends. → **BUILDER**. deps: INFRA-03. *Accept:* get/put unit-tested.
+- [ ] **INFRA-08** — Install **ClickHouse Agent Skills** (`npx skills add
+  clickhouse/agent-skills`) into `.claude/skills/`; add **chdb** local backend + the
+  `aegis-core.storage` abstraction (`STORAGE_BACKEND=local`, `CLICKHOUSE_BACKEND=chdb`) —
+  **no S3 locally**. See [docs/10](docs/10-external-tools.md). → **BUILDER**. deps: INFRA-03.
+  *Accept:* skills present; core selects chdb + local `./data` storage from env; unit tests.
 
 ## 5. TRACK B — Backend (FastAPI BFF + services)
 
 ### Phase 1 — Core
 - [ ] **BE-01** — FastAPI app skeleton in `apps/api` (routers, deps, OpenAPI, healthz,
   CORS, error handlers). → **BUILDER**. deps: INFRA-03. *Accept:* `/healthz` 200; OpenAPI.
-- [ ] **BE-02** — Postgres models + RLS (tenants, users, roles, memberships, api_keys,
-  audit_log) per [docs/07](docs/07-data-model-and-api.md). → **BUILDER**. deps: INFRA-04.
-  *Accept:* migration applies; RLS policy blocks cross-tenant read (test).
-- [ ] **BE-03** — Auth: OIDC (Keycloak) login, session/JWT, `require_user` +
-  `require_tenant` deps, RBAC permission checks. See [docs/05](docs/05-auth-and-integrations.md). → **BUILDER**. deps: BE-01,02. *Accept:* protected route rejects anon; tenant scoping test.
-- [ ] **BE-04** — Tenant middleware: sets `app.current_tenant` on the PG session per
-  request from JWT. → **SURGEON**. deps: BE-03. *Accept:* isolation integration test green.
-- [ ] **BE-05** — SCIM 2.0 + SAML SSO endpoints (provisioning + enterprise login). →
-  **BUILDER**. deps: BE-03. *Accept:* SCIM create/deactivate user; SAML ACS round-trip.
+- [ ] **BE-02** — **Supabase** schema + **RLS** (tenants, users, roles, memberships,
+  api_keys, audit_log) via Supabase migrations; RLS policies read `auth.jwt()->>'tenant_id'`.
+  Per [docs/07](docs/07-data-model-and-api.md). → **BUILDER**. deps: INFRA-04.
+  *Accept:* migration applies; RLS blocks cross-tenant read for a second tenant's JWT (test).
+- [ ] **BE-03** — Auth: **Supabase Auth** — verify the Supabase JWT in FastAPI (JWKS/
+  `SUPABASE_JWT_SECRET`), `require_user` + `require_tenant` deps (tenant/role from claims),
+  RBAC permission checks. See [docs/05](docs/05-auth-and-integrations.md). → **BUILDER**.
+  deps: BE-01,02. *Accept:* protected route rejects anon; wrong-tenant token blocked.
+- [ ] **BE-04** — Tenant middleware: read `tenant_id` from the Supabase JWT and set
+  `app.current_tenant` on the service PG session per request. → **SURGEON**. deps: BE-03.
+  *Accept:* isolation integration test green.
+- [ ] **BE-05** — Enterprise **SSO (Supabase SAML)** + **SCIM** provisioning wiring; map
+  SSO/SCIM users → tenant + role claims. → **BUILDER**. deps: BE-03. *Accept:* SCIM
+  create/deactivate user; SAML sign-in yields a tenant-scoped session.
 
 ### Phase 2 — Data plane
 - [ ] **BE-06** — ClickHouse schema: `events`, `detections`, `event_archive_ref` with
-  `tenant_id` + row policies per [docs/04](docs/04-data-and-tenancy.md). → **BUILDER**.
-  deps: INFRA-04. *Accept:* insert+query tenant-scoped; row policy blocks cross-tenant.
+  `tenant_id` + row policies per [docs/04](docs/04-data-and-tenancy.md); must run on
+  **chdb** (local) and server (use the ClickHouse Agent Skills). → **BUILDER**.
+  deps: INFRA-04,08. *Accept:* insert+query tenant-scoped; row policy blocks cross-tenant.
 - [ ] **BE-07** — OpenSearch index templates `t-{tenant}-*` + DLS + federation client
   (Splunk/Elastic/Sentinel adapters). → **BUILDER**. deps: INFRA-02. *Accept:* per-tenant
   index isolation test; federated query returns normalized rows.
@@ -177,9 +190,9 @@ decision (mark `[!]`, stop, surface to user).
   (light/dark), layout, left nav (Dashboard/Rules/Incidents/Cases/Assets/Automation/
   Investigations/Reports/AI Assistant + Manage). → **FE**. deps: INFRA-01. *Accept:* nav
   renders; routes stubbed; matches teardown IA.
-- [ ] **FE-02** — Auth.js OIDC client → Keycloak; session, org switcher, protected
-  layouts, RBAC-aware nav. → **FE**. deps: FE-01, BE-03. *Accept:* login redirects;
-  tenant switch reloads scoped data.
+- [ ] **FE-02** — **Supabase Auth** (`@supabase/ssr`): sign-in/up, cookie sessions,
+  `middleware.ts` refresh, org switcher, protected layouts, RBAC-aware nav. → **SUPA-FE**.
+  deps: FE-01, BE-03. *Accept:* login sets session cookie; tenant switch reloads scoped data.
 - [ ] **FE-03** — API client (typed from OpenAPI) + TanStack Query + WS/SSE live feed. →
   **FE**. deps: FE-01, BE-01. *Accept:* typed calls; live case updates stream.
 
@@ -219,9 +232,11 @@ decision (mark `[!]`, stop, surface to user).
 
 ## 7. TRACK D — Agents / AI (Agno + AgentOS + MCP)
 
-- [ ] **AI-01** — MCP servers: `mcp-clickhouse`, `mcp-opensearch`, `mcp-threatintel`,
-  `mcp-soar`, `mcp-rules` (tenant-scoped via bearer). See [docs/03 §7](docs/03-agents.md).
-  → **AI-ARCH**. deps: BE-06,07,10. *Accept:* each MCP lists tools; tenant scope enforced.
+- [ ] **AI-01** — Agent tool layer: **adopt `opensearch-agent-server`** (`--with-mcp`,
+  :8001) for OpenSearch (wrap with tenant guard); build `mcp-clickhouse` (chdb/server),
+  `mcp-threatintel`, `mcp-soar`, `mcp-rules` (tenant-scoped via bearer/tenant header).
+  See [docs/03 §7](docs/03-agents.md), [docs/10](docs/10-external-tools.md). → **AI-ARCH**.
+  deps: BE-06,07,10. *Accept:* each tool source lists tools; per-tenant scope enforced.
 - [ ] **AI-02** — Agno agents (Triage/Investigation/ThreatIntel/Response/DetectionEng/
   Reporting) with model tiers, tools, `tool_hooks` (audit + tenant guard). → **AI-ARCH**.
   deps: AI-01. *Accept:* each agent runs a scripted scenario; hooks log every call.

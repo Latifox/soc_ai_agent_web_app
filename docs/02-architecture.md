@@ -23,9 +23,9 @@
         ┌────────────────┼─────────────────┼────────────┼──────────────┼───────────┐
         ▼                ▼                 ▼            ▼              ▼           ▼
   ┌──────────┐   ┌───────────────┐  ┌───────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐
-  │PostgreSQL│   │  ClickHouse   │  │ OpenSearch│ │  Redis   │ │  S3 /    │ │ AgentOS │
-  │(app meta │   │ (events/detect│  │ (search + │ │(cache,   │ │  MinIO   │ │  (Agno) │
-  │ + RLS)   │   │  analytics)   │  │ federation)│ │ queues)  │ │(archive) │ │ durable │
+  │ Supabase │   │  ClickHouse   │  │ OpenSearch│ │  Redis   │ │ Local FS │ │ AgentOS │
+  │(PG+Auth+ │   │ chdb(local)/  │  │ +agent-svr│ │(cache,   │ │  ./data  │ │  (Agno) │
+  │  RLS)    │   │ server(prod)  │  │ (MCP :8001)│ │ queues)  │ │(archive) │ │ durable │
   └──────────┘   └───────────────┘  └───────────┘ └──────────┘ └──────────┘ └─────────┘
                          ▲
                          │ normalized ECS events
@@ -69,7 +69,8 @@ microservices as scale demands. Python services share a common `aegis-core` lib
 - **Monaco editor** for the YAML rule editor (split view, schema validation, lint).
 - **OpenUI** (`@openuidev/*`, OpenUI Lang) for the chat / AI Assistant — agents reply with
   streamed, safe, interactive generative UI. See [09](09-chat-generative-ui.md).
-- Auth via **Auth.js (NextAuth)** OIDC client to Keycloak/WorkOS, or Clerk SDK.
+- **Supabase Auth** via `@supabase/ssr` — cookie-based sessions in the App Router; tenant +
+  role claims travel in the JWT and drive Postgres RLS.
 
 ### Backend / API
 - **FastAPI (Python 3.13)** — async, typed, OpenAPI-native. Same language as the agents
@@ -85,15 +86,20 @@ glue and lets Pydantic models flow end-to-end.
 
 ### Data stores — see [04-data-and-tenancy](04-data-and-tenancy.md)
 - **ClickHouse** — primary security datalake: raw+normalized events, detection results,
-  analytics. Columnar, cheap at SIEM scale, sub-second aggregations.
+  analytics. Columnar, cheap at SIEM scale, sub-second aggregations. **Local dev uses
+  chdb** (in-process, no server); prod uses a ClickHouse server. See [10](10-external-tools.md).
 - **OpenSearch** — full-text search, correlation, and the federation target that lets us
-  "detect where the data lives" against existing Elastic/OpenSearch estates.
-- **PostgreSQL 16** — application metadata with **Row-Level Security** for tenant
-  isolation (tenants, users, roles, rules, incidents, cases, assets, integrations,
-  playbooks, audit).
+  "detect where the data lives" against existing Elastic/OpenSearch estates. The
+  **OpenSearch Agent Server** (`--with-mcp`, :8001) is the agent tool/MCP layer over it.
+- **Supabase (managed PostgreSQL)** — application metadata with **Row-Level Security**
+  for tenant isolation (tenants, users, roles, rules, incidents, cases, assets,
+  integrations, playbooks, audit). **Supabase Auth** issues the JWTs whose `tenant_id` +
+  `role` claims the RLS policies read. Agno's `PostgresDb` uses the same instance.
 - **Redis** — sessions, rate limiting, hot cache, lightweight job queues, pub/sub for
   live UI.
-- **S3 / MinIO** — raw log archive (cold), case artifacts, generated reports.
+- **Local filesystem `./data`** (dev, **no S3**) — raw log archive, case artifacts,
+  generated reports; swap to Supabase Storage / S3 in prod via the `aegis-core.storage`
+  abstraction.
 
 ### Agents & LLM — see [03-agents](03-agents.md)
 - **Agno** — the agent framework: agents + **Teams** (multi-agent), **Workflows 2.0**
@@ -145,17 +151,21 @@ glue and lets Pydantic models flow end-to-end.
   optional **backtest** against ClickHouse → Save (version bump).
 
 ## 5. Multi-tenancy (summary — full model in [04](04-data-and-tenancy.md))
-- Every request carries a **tenant context** (from the session/JWT). API sets
-  `SET app.current_tenant = :tenant_id` → Postgres **RLS** filters all rows.
+- Every request carries a **tenant context** from the **Supabase Auth JWT** (`tenant_id` +
+  `role` claims). Postgres **RLS** policies read `auth.jwt() ->> 'tenant_id'` (and the BFF
+  also sets `app.current_tenant` on service connections) → all rows filtered by tenant.
 - ClickHouse: `tenant_id` low-cardinality column on every table + **row policies** +
   per-tenant quotas; queries always constrained by tenant.
 - OpenSearch: per-tenant index prefix `t-{tenant}-*` and/or **document-level security**.
 - Secrets (connector creds, API keys) namespaced per tenant in the vault.
-- Object storage prefixed `s3://…/tenant={id}/…`.
+- Object storage namespaced per tenant: `./data/storage/tenant={id}/…` (local dev; an S3
+  prefix in prod).
 
 ## 6. Deployment topology
-- **Dev:** docker-compose — Postgres, ClickHouse, OpenSearch, Redis, MinIO, Keycloak,
-  Vector, Langfuse, Temporal, plus web + api + agent-worker.
+- **Dev (local-first, no S3):** **Supabase CLI** (`supabase start` → local Postgres +
+  Auth + Storage) + docker-compose for OpenSearch (+ `opensearch-agent-server`), Redis,
+  Vector, Langfuse. **ClickHouse runs as local chdb** (in-process, no server); object
+  archive is local `./data`. Plus web + api + agent-worker.
 - **Prod:** Kubernetes (Helm). Stateful sets for ClickHouse/OpenSearch (or managed:
   ClickHouse Cloud, AWS OpenSearch). Autoscaled stateless pods for API/agents/runtime.
   Vector as a DaemonSet/Deployment per source. Secrets via External Secrets + KMS.
@@ -175,8 +185,9 @@ glue and lets Pydantic models flow end-to-end.
 1. **Python core** (not Node) — align with agent + data ecosystem. See §3.
 2. **ClickHouse primary, OpenSearch federated** — cost + speed for detection; keep
    full-text + existing-estate federation.
-3. **Postgres RLS for tenancy** — hard isolation without per-tenant DBs; simplest correct
-   default; escalate to schema/DB-per-tenant only for enterprise/data-residency tiers.
+3. **Supabase (Postgres RLS) for tenancy + auth** — auth and row-level isolation in one
+   layer; tenant/role claims in the Supabase JWT drive RLS. Hard isolation without
+   per-tenant DBs; escalate to schema/DB-per-tenant only for data-residency tiers.
 4. **Agno + AgentOS** — one framework for tools/hooks/teams/Workflows-loops/HITL, plus a
    self-hosted runtime + control plane. Chat is generative UI via **OpenUI**. See
    [03](03-agents.md) and [09](09-chat-generative-ui.md).

@@ -234,13 +234,20 @@ tools = MultiMCPTools(
 )
 ```
 
-MCP servers to build (each tenant-scoped via bearer token / tenant header):
-- **mcp-clickhouse** — parameterized read queries over the events datalake (tenant-filtered).
-- **mcp-opensearch** — search + federated queries (incl. external Splunk/Elastic/Sentinel).
+MCP servers (each tenant-scoped via bearer token / tenant header):
+- **mcp-clickhouse** — parameterized read queries over the events datalake (tenant-filtered);
+  local **chdb** in dev, ClickHouse server in prod. See [10](10-external-tools.md).
+- **opensearch-agent-server** (`--with-mcp`, :8001) — **adopted upstream**, not rebuilt:
+  search + index + aggregation tools over OpenSearch, plus federation; Aegis wraps it with
+  a per-tenant index/DLS guard. See [10](10-external-tools.md).
 - **mcp-threatintel** — VT / AbuseIPDB / OTX / MISP lookups.
 - **mcp-soar** — response actions (notify/block/isolate/disable/ticket), destructive ones
   marked `requires_confirmation`.
 - **mcp-rules** — search/backtest/validate rules; Sigma import.
+
+> The build loop also installs **ClickHouse Agent Skills** (`npx skills add
+> clickhouse/agent-skills`) into `.claude/skills/` so coding agents write correct,
+> optimized ClickHouse (schema, compilers, ingestion). See [10](10-external-tools.md).
 
 ## 8. Memory, knowledge (RAG), durability
 
