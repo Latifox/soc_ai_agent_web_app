@@ -1,0 +1,46 @@
+# Aegis ingestion pipeline (Vector) — starter template (INFRA-02 / BE-08).
+# Pattern: collect -> parse -> VRL normalize to ECS -> sinks. Add one source block per
+# connector (AWS/Azure/GCP/K8s/Cloudflare/Docker/Datadog/Okta/Syslog/HTTP/S3/Kafka).
+#
+# Local dev (CLICKHOUSE_BACKEND=chdb) has no ClickHouse server, so this template sinks the
+# normalized events to the local ./data archive + console. In server mode, enable the
+# `clickhouse` sink below. See docs/05 §8, docs/10.
+
+sources:
+  demo:
+    type: demo_logs
+    format: json
+    interval: 5
+
+transforms:
+  # VRL normalization to ECS. Real per-source transforms map vendor fields -> ECS.
+  normalize:
+    type: remap
+    inputs: [demo]
+    source: |
+      .tenant_id = "demo-tenant"
+      .event = { "category": "network", "type": "allowed", "action": "accept" }
+      .source = { "ip": "10.0.0.5" }
+      .destination = { "ip": "8.8.8.8", "port": to_int!(random_int(1000, 1100)) }
+      .["@timestamp"] = now()
+
+sinks:
+  archive:
+    type: file
+    inputs: [normalize]
+    path: /data/archive/%Y-%m-%d/events.log
+    encoding: { codec: json }
+
+  console:
+    type: console
+    inputs: [normalize]
+    encoding: { codec: json }
+
+  # Enable in server mode (CLICKHOUSE_BACKEND=server):
+  # clickhouse:
+  #   type: clickhouse
+  #   inputs: [normalize]
+  #   endpoint: http://clickhouse:8123
+  #   database: aegis
+  #   table: events
+  #   skip_unknown_fields: true
