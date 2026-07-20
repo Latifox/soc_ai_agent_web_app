@@ -1,0 +1,19 @@
+[project]
+name = "aegis-mcp-threatintel"
+version = "0.1.0"
+description = "Aegis MCP server — normalized IOC reputation (VirusTotal/AbuseIPDB)"
+requires-python = ">=3.13"
+dependencies = ["mcp>=1.2", "aegis-core", "httpx>=0.27"]
+
+[project.scripts]
+mcp-threatintel = "mcp_threatintel.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_threatintel"]
+
+[tool.uv.sources]
+aegis-core = { workspace = true }

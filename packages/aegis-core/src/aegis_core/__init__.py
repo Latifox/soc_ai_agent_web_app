@@ -38,6 +38,7 @@ from aegis_core.opensearch import OpenSearchClient, get_opensearch
 from aegis_core.secrets import SecretsBackend, get_secrets
 from aegis_core.settings import Settings, get_settings
 from aegis_core.storage import LocalStorage, StorageBackend, get_storage
+from aegis_core.threatintel import lookup_ioc
 from aegis_core.tracing import configure_tracing, get_tracer
 
 __all__ = [
@@ -74,6 +75,7 @@ __all__ = [
     "get_storage",
     "get_tenant_context",
     "get_tracer",
+    "lookup_ioc",
     "require_tenant_context",
     "reset_tenant_context",
     "set_tenant_context",

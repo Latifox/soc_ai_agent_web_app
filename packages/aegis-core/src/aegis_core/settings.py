@@ -69,6 +69,13 @@ class Settings(BaseSettings):
     model_balanced: str = "claude-sonnet-5"
     model_fast: str = "claude-haiku-4-5-20251001"
 
+    # ── Threat intel ────────────────────────────────────────────────────────
+    virustotal_api_key: str = ""
+    abuseipdb_api_key: str = ""
+    otx_api_key: str = ""
+    misp_url: str = ""
+    misp_api_key: str = ""
+
     # ── Observability ───────────────────────────────────────────────────────
     otel_service_name: str = "aegis-api"
     otel_exporter_otlp_endpoint: str = ""
