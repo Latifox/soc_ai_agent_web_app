@@ -302,7 +302,14 @@ _(loop appends: `<task-id> — <commit hash> — <date>`)_
   autonomy routers + store + schemas)
 - INFRA-05 — `c6df6ae` — 2026-07-20 (CI workflow + rules CRUD/isolation/RBAC test)
 - BE-12 (partial) — pending commit — 2026-07-20 (detection scheduler: run_one/run_tenant)
-- **Next (after `uv sync`/`pnpm install` verify):** BE-03 real JWKS + audit hash-chain
-  (SEC-02), detections emit path, AI-05 AgentOS approval wiring, FE-02 Supabase Auth,
-  FE-04/06/07 wire pages to /api/v1, packages/mcp servers (AI-01).
+- SEC-02, AI-01 — `34d7619`/`33e24c0` — 2026-07-21 (hash-chained audit wired into agent
+  hooks; OpenSearch adapter+tool; **mcp-clickhouse / mcp-threatintel / mcp-soar** servers;
+  real VirusTotal+AbuseIPDB threat-intel)
+- skills — `bf32044` — 2026-07-21 (ClickHouse agent-skills installed, pinned by skills-lock)
+- BE-07/H1 — `8471536` — 2026-07-21 (/search: ClickHouse SQL + OpenSearch, tenant-scoped)
+- BE-12/13 — `96659da`/`58db75b` — 2026-07-21 (detection emit to ClickHouse on alert;
+  correlate detections → incident candidates) — pipeline compile→run→emit→correlate complete
+- **Next (needs `uv sync`/`pnpm install` to run):** AI-05 AgentOS approval wiring (httpx
+  continue_run), federation adapters (Splunk/Elastic/Sentinel), FE-02 Supabase Auth,
+  persist detections→incidents to Supabase, wire MultiMCPTools into the crew.
 - INFRA-01 — 7893838 — 2026-07-20 (scaffold + spec)
