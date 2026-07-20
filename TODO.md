@@ -100,9 +100,9 @@ decision (mark `[!]`, stop, surface to user).
 
 ## 4. TRACK A — Architecture / Infra (Phase 0)
 
-- [ ] **INFRA-01** — Scaffold monorepo (`pnpm` workspace + `uv`/`poetry` Python), root
-  `README`, `.editorconfig`, `.gitignore`, license. → **BUILDER**. deps: none.
-  *Accept:* `pnpm i` and `uv sync` succeed; tree matches §layout.
+- [x] **INFRA-01** — Scaffold monorepo (`pnpm` workspace + `uv` Python), root config,
+  `.editorconfig`, `.gitignore`, `.env.example`, Makefile, dir skeleton. → done.
+  *Accept:* tree matches §layout; committed `7893838`.
 - [ ] **INFRA-02** — Dev stack: **Supabase CLI** (`supabase init`/`start` → Postgres +
   Auth + Storage) + `infra/docker-compose.yml` for ClickHouse, OpenSearch, Redis, MinIO,
   Vector, Langfuse. Healthchecks + `.env.example`. → **BUILDER**. deps: INFRA-01.
@@ -279,3 +279,4 @@ decision (mark `[!]`, stop, surface to user).
 
 ## 9. Progress log
 _(loop appends: `<task-id> — <commit hash> — <date>`)_
+- INFRA-01 — 7893838 — 2026-07-20 (scaffold + spec)
