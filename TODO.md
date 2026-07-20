@@ -287,5 +287,15 @@ _(loop appends: `<task-id> — <commit hash> — <date>`)_
 - BE-01 (partial) — pending commit — 2026-07-20 (FastAPI skeleton + Supabase JWT deps + tests)
 - INFRA-02 (partial) — pending commit — 2026-07-20 (docker-compose dev stack)
 - **BLOCKER:** background agent dispatch failing on session usage limit (resets ~02:10
-  Africa/Casablanca). Loop resumes real task execution after reset.
+  Africa/Casablanca). Switched to direct main-thread implementation.
+- AI-02/03/05 (partial) — `c17dd57` — 2026-07-20 (Argus crew: agents, hooks, tools, team,
+  workflow, AgentOS)
+- FE-01 done + FE-14/15/16 (partial) — `4301420` — 2026-07-20 (Next.js shell + OpenUI
+  generative-UI assistant + BFF stream proxy)
+- BE-10/11 (partial) — `9130848` — 2026-07-20 (detection engine: schema + KQL→ClickHouse
+  compiler + backtest + tests)
+- BE-10/13 (partial) — `7c82f8a` — 2026-07-20 (rules/incidents/cases routers + RBAC +
+  tenant store)
+- **Next (after `uv sync`/`pnpm install` verify):** BE-02 Supabase schema+RLS, BE-03 real
+  JWKS, AI-04 HITL approval endpoint wiring, FE-02 Supabase Auth, INFRA-04 migrations.
 - INFRA-01 — 7893838 — 2026-07-20 (scaffold + spec)
