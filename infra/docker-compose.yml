@@ -13,7 +13,9 @@ services:
     ports: ["8123:8123", "9000:9000"]
     ulimits:
       nofile: { soft: 262144, hard: 262144 }
-    volumes: ["clickhouse-data:/var/lib/clickhouse"]
+    volumes:
+      - "clickhouse-data:/var/lib/clickhouse"
+      - "./clickhouse/users.d/cors.xml:/etc/clickhouse-server/users.d/cors.xml:ro"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping || exit 1"]
       interval: 10s
@@ -37,17 +39,16 @@ services:
       timeout: 5s
       retries: 10
 
-  # ClickHouse web dashboard (http://localhost:5521) — query builder, tables, metrics.
-  # (ClickHouse also has a built-in Play UI at http://localhost:8123/play.)
+  # ClickHouse web dashboard (http://localhost:5521) — SQL editor, tables, charts.
+  # Tabix connects browser-side straight to ClickHouse (no app account); prefilled with
+  # the local server + user "default" (blank password). Play UI: http://localhost:8123/play
   clickhouse-ui:
-    image: ghcr.io/caioricciuti/ch-ui:latest
+    image: spoonest/clickhouse-tabix-web-client:latest
     environment:
-      # Reached by ch-ui's in-container tunnel agent -> use the compose service name,
-      # not localhost. Sign in with user "default" and a blank password.
-      - VITE_CLICKHOUSE_URL=http://clickhouse:8123
-      - VITE_CLICKHOUSE_USER=default
-      - VITE_CLICKHOUSE_PASS=
-    ports: ["5521:3488"]
+      - CH_NAME=Aegis ClickHouse
+      - CH_HOST=http://localhost:8123
+      - CH_LOGIN=default
+    ports: ["5521:80"]
     depends_on:
       clickhouse:
         condition: service_healthy
