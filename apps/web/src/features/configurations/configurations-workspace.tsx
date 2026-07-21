@@ -63,11 +63,9 @@ export function ConfigurationsWorkspace({
       setBusy(false);
     }
   }
-  const clickhouse = integrations.find((i) => i.provider === "clickhouse");
   const opensearch = integrations.find((i) => i.provider === "opensearch");
   const stores = [
-    { name: "ClickHouse", icon: Database, blurb: "Analytics datalake", rec: clickhouse },
-    { name: "OpenSearch", icon: Search, blurb: "Search & correlation", rec: opensearch },
+    { name: "OpenSearch", icon: Search, blurb: "Logs, search & detection", rec: opensearch },
   ];
 
   return (

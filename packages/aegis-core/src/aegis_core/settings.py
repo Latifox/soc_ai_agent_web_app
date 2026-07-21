@@ -50,14 +50,9 @@ class Settings(BaseSettings):
             "postgresql+psycopg2://", "postgresql://"
         )
 
-    # ── ClickHouse (events datalake) — local chdb by default ────────────────
-    clickhouse_backend: Literal["chdb", "server"] = "chdb"
-    chdb_path: str = "./data/clickhouse"
-    clickhouse_host: str = "localhost"
-    clickhouse_port: int = 8123
-    clickhouse_user: str = "default"
-    clickhouse_password: str = ""
-    clickhouse_db: str = "aegis"
+    # Telemetry / logs live in OpenSearch (below) — there is no separate events datalake.
+    # The events index suffix under the per-tenant prefix ``t-{tenant}-{suffix}``.
+    opensearch_events_suffix: str = "events"
 
     # ── OpenSearch (search + federation) ────────────────────────────────────
     opensearch_url: str = "http://localhost:9200"

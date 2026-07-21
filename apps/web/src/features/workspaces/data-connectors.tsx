@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Panel, StatusLabel } from "@/components/soc/flagship-ui";
 import type { IntegrationRecord } from "@/lib/api";
 
-type Provider = "clickhouse" | "opensearch";
+type Provider = "opensearch";
 
 type Field = { key: string; label: string; placeholder: string; type?: string };
 
@@ -15,19 +15,6 @@ const SPECS: Record<
   Provider,
   { name: string; icon: typeof Database; blurb: string; fields: Field[]; defaults: Record<string, string> }
 > = {
-  clickhouse: {
-    name: "ClickHouse",
-    icon: Database,
-    blurb: "Analytics datalake the crew queries for events & detections (read-only SQL).",
-    fields: [
-      { key: "host", label: "Host", placeholder: "localhost" },
-      { key: "port", label: "HTTP port", placeholder: "8123" },
-      { key: "database", label: "Database", placeholder: "aegis" },
-      { key: "user", label: "User", placeholder: "default" },
-      { key: "password", label: "Password", placeholder: "••••••", type: "password" },
-    ],
-    defaults: { host: "localhost", port: "8123", database: "aegis", user: "default", password: "" },
-  },
   opensearch: {
     name: "OpenSearch",
     icon: Search,
@@ -192,8 +179,7 @@ function ConnectorCard({ provider, initial }: { provider: Provider; initial?: In
 export function DataConnectors({ integrations }: { integrations: IntegrationRecord[] }) {
   const byProvider = (p: Provider) => integrations.find((i) => i.provider === p);
   return (
-    <div className="grid gap-4 p-4 pb-0 lg:grid-cols-2 lg:p-5 lg:pb-0">
-      <ConnectorCard provider="clickhouse" initial={byProvider("clickhouse")} />
+    <div className="grid gap-4 p-4 pb-0 lg:p-5 lg:pb-0">
       <ConnectorCard provider="opensearch" initial={byProvider("opensearch")} />
     </div>
   );

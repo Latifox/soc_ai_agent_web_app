@@ -132,8 +132,8 @@ class ApprovalDecision(BaseModel):
 
 
 class SearchRequest(BaseModel):
-    engine: Literal["clickhouse", "opensearch"] = "clickhouse"
-    query: str  # read-only SQL (clickhouse) or Lucene query_string (opensearch)
+    engine: Literal["opensearch"] = "opensearch"
+    query: str  # Lucene query_string over the tenant's OpenSearch indices
     size: int = Field(default=50, ge=1, le=500)
 
 

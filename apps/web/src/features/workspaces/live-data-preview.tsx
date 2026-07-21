@@ -1,24 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Database, Loader2, Play, Search } from "lucide-react";
+import { Loader2, Play, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Panel, StatusLabel } from "@/components/soc/flagship-ui";
 
-type Engine = "clickhouse" | "opensearch";
 type Row = Record<string, unknown>;
 
-const DEFAULT_QUERY: Record<Engine, string> = {
-  clickhouse: "SELECT * FROM events ORDER BY ts DESC LIMIT 20",
-  opensearch: "*",
-};
-
-async function runSearch(engine: Engine, query: string): Promise<{ rows: Row[]; count: number }> {
+async function runSearch(query: string): Promise<{ rows: Row[]; count: number }> {
   const resp = await fetch("/api/backend/search", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ engine, query, size: 20 }),
+    body: JSON.stringify({ engine: "opensearch", query, size: 20 }),
   });
   if (!resp.ok) throw new Error(String(resp.status));
   const data = (await resp.json()) as { rows: Row[]; count: number };
@@ -26,32 +20,23 @@ async function runSearch(engine: Engine, query: string): Promise<{ rows: Row[]; 
 }
 
 export function LiveDataPreview() {
-  const [engine, setEngine] = useState<Engine>("clickhouse");
-  const [query, setQuery] = useState(DEFAULT_QUERY.clickhouse);
+  const [query, setQuery] = useState("*");
   const [rows, setRows] = useState<Row[]>([]);
   const [count, setCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  function switchEngine(next: Engine) {
-    setEngine(next);
-    setQuery(DEFAULT_QUERY[next]);
-    setRows([]);
-    setCount(null);
-    setError("");
-  }
-
   async function run() {
     setBusy(true);
     setError("");
     try {
-      const data = await runSearch(engine, query);
+      const data = await runSearch(query);
       setRows(data.rows ?? []);
       setCount(data.count ?? 0);
     } catch {
       setRows([]);
       setCount(0);
-      setError(`No live data — connect ${engine === "clickhouse" ? "ClickHouse" : "OpenSearch"} above and ingest events.`);
+      setError("No live data — connect OpenSearch above and ingest events.");
     } finally {
       setBusy(false);
     }
@@ -67,19 +52,9 @@ export function LiveDataPreview() {
     >
       <div className="space-y-3 p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex overflow-hidden rounded-control border border-border">
-            {(["clickhouse", "opensearch"] as Engine[]).map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => switchEngine(e)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs capitalize ${engine === e ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                {e === "clickhouse" ? <Database className="size-3.5" /> : <Search className="size-3.5" />}
-                {e}
-              </button>
-            ))}
-          </div>
+          <span className="flex items-center gap-1.5 rounded-control border border-border px-3 py-1.5 text-xs text-primary">
+            <Search className="size-3.5" /> OpenSearch · Lucene
+          </span>
           <Button size="sm" variant="primary" onClick={run} disabled={busy} className="ml-auto">
             {busy ? <Loader2 className="animate-spin" /> : <Play />} Run
           </Button>
@@ -90,6 +65,7 @@ export function LiveDataPreview() {
           onChange={(e) => setQuery(e.target.value)}
           rows={2}
           spellCheck={false}
+          placeholder="event.action:failed_login AND source.ip:203.0.113.66"
           className="w-full resize-y rounded-control border border-border bg-surface px-3 py-2 font-mono text-xs text-foreground outline-none focus:border-primary"
         />
 

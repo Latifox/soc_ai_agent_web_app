@@ -134,37 +134,39 @@ async def apply_rule(rule_id: str, body: RuleApplyRequest, tenant: RulesWriter) 
 async def run_rule_now(rule_id: str, tenant: RulesWriter) -> dict[str, Any]:
     """Evaluate a rule against live events and raise correlated incidents on matches.
 
-    This is the detection→incident bridge: compile the rule, run it over the tenant's
-    ClickHouse events, correlate the matches by (rule, primary entity), and create/refresh
-    an incident in the metadata store for each cluster. Re-running is idempotent — an
-    existing incident for the same correlation key is updated, not duplicated.
+    This is the detection→incident bridge: run the rule over the tenant's OpenSearch
+    events, correlate the matches by (rule, primary entity), and create/refresh an incident
+    in the metadata store for each cluster. Re-running is idempotent — an existing incident
+    for the same correlation key is updated, not duplicated.
     """
     rule = rules_repo.get(tenant.tenant_id, rule_id)
     if rule is None:
         raise NotFoundError(f"rule {rule_id} not found")
-    from aegis_detection.compile import compile_rule  # noqa: PLC0415 - keep API import light
     from aegis_detection.correlate import correlate, correlation_key
     from aegis_detection.run import run_rule
 
     data = yaml.safe_load(rule["yaml"]) or {}
     data.setdefault("rule_id", rule_id)
     try:
-        compiled = compile_rule(data)
-        rows = run_rule(compiled, tenant_id=tenant.tenant_id)
+        result = run_rule(data, tenant_id=tenant.tenant_id)
     except Exception as exc:  # noqa: BLE001 - a bad rule/query is a 400, not a 500
         raise PermissionDeniedError(f"rule failed to run: {str(exc)[:200]}") from exc
 
-    # Turn each matching row into a detection (entities = the grouped values / raw match).
+    # Threshold rules yield breaches (entity + metric); query rules yield event hits.
     severity = str(rule.get("severity", "medium"))
     detections: list[dict[str, Any]] = []
-    for row in rows:
-        entities = [str(v) for k, v in row.items() if k not in ("tenant_id", "metric") and v not in (None, "")]
-        if not entities:
-            entities = [str(row.get("host_name") or row.get("src_ip") or "match")]
-        detections.append({"rule_id": rule_id, "severity": severity, "entities": entities, "metric": row.get("metric")})
+    if result["breaches"]:
+        for b in result["breaches"]:
+            detections.append({"rule_id": rule_id, "severity": severity, "entities": b["entities"], "metric": b.get("metric")})
+    elif result["matches"]:
+        entities = sorted({
+            str(h.get("host", {}).get("name") or h.get("source", {}).get("ip") or h.get("user", {}).get("name") or "")
+            for h in result["sample"]
+        } - {""})
+        detections.append({"rule_id": rule_id, "severity": severity, "entities": entities or ["match"], "metric": result["matches"]})
 
     if not detections:
-        return {"matches": 0, "incidents": [], "note": "no events matched the rule"}
+        return {"matches": 0, "incidents_created": [], "incidents_updated": [], "note": "no events matched the rule"}
 
     existing = {i.get("correlation_key"): i for i in incidents_repo.list(tenant.tenant_id) if i.get("correlation_key")}
     created: list[str] = []
@@ -195,7 +197,7 @@ async def run_rule_now(rule_id: str, tenant: RulesWriter) -> dict[str, Any]:
             },
         )
         created.append(incident["id"])
-    return {"matches": len(rows), "incidents_created": created, "incidents_updated": updated_ids}
+    return {"matches": result["matches"], "incidents_created": created, "incidents_updated": updated_ids}
 
 
 @router.post("/{rule_id}/backtest", responses=_NOT_FOUND)

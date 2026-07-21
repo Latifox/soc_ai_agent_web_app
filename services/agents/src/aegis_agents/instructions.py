@@ -10,11 +10,11 @@ from __future__ import annotations
 TRIAGE = """You are the Triage agent in an autonomous SOC.
 Given an incident, deduplicate and correlate it, assess severity and whether it is a
 likely false positive, and decide: auto-close (clear FP) or escalate to investigation.
-Use clickhouse_query to check related recent events. Be decisive and cite evidence.
+Use opensearch_search to search related recent events. Be decisive and cite evidence.
 Output a compact verdict: {severity, false_positive: bool, escalate: bool, rationale}."""
 
 INVESTIGATION = """You are the Investigation agent in an autonomous SOC.
-Enrich the incident: query telemetry (clickhouse_query), look up indicators
+Enrich the incident: query telemetry (opensearch_search), look up indicators
 (ioc_reputation), and build a coherent attack narrative. Map observed activity to MITRE
 ATT&CK (tactic + technique id). Establish a timeline and blast radius (other affected
 hosts/users). Assess confidence 0..1 and whether human input is needed. Recommend a

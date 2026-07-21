@@ -1,21 +1,15 @@
 """aegis_core — shared foundation for every Aegis Python service.
 
 Settings, structured logging, OpenTelemetry tracing, the tenant context, error
-types, and the storage / ClickHouse / secrets abstractions. Import from the package
+types, and the storage / OpenSearch / secrets abstractions. Import from the package
 root; submodules are an implementation detail.
 """
 
 from __future__ import annotations
 
 from aegis_core.audit import AuditChain, AuditRecord, audit_chain, compute_hash
-from aegis_core.clickhouse import (
-    ClickHouseBackend,
-    build_tenant_scoped_query,
-    get_clickhouse,
-)
 from aegis_core.connectors import (
     DATA_PROVIDERS,
-    clickhouse_for_tenant,
     opensearch_for_tenant,
     ping as ping_connector,
     registry as connector_registry,
@@ -54,7 +48,6 @@ __all__ = [
     "AuditChain",
     "AuditRecord",
     "AuthError",
-    "ClickHouseBackend",
     "audit_chain",
     "compute_hash",
     "ConfigurationError",
@@ -71,15 +64,12 @@ __all__ = [
     "TenantContext",
     "TenantContextError",
     "TenantIsolationError",
-    "build_tenant_scoped_query",
     "clear_tenant_context",
-    "clickhouse_for_tenant",
     "configure_logging",
     "configure_tracing",
     "connector_registry",
     "current_tenant_id",
     "federated_search",
-    "get_clickhouse",
     "opensearch_for_tenant",
     "ping_connector",
     "get_logger",

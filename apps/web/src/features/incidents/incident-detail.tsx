@@ -44,23 +44,23 @@ export function IncidentDetail({ incident: initial }: { incident: IncidentRecord
   const mitre = (incident.tags ?? []).filter((t) => /^T1\d{3}/i.test(t));
   const entities = incident.entities ?? [];
 
-  // Pull real evidence for the incident's entities straight from the ClickHouse datalake.
+  // Pull real evidence for the incident's entities straight from OpenSearch.
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setEvLoading(true);
       setEvError("");
       if (entities.length === 0) { setEvLoading(false); return; }
-      const inList = entities.map((e) => `'${e.replace(/'/g, "")}'`).join(", ");
-      // Match the entities against host / user / IP columns (entities may be a hostname,
-      // a username, or an IP). tenant_id is selected so the server's tenant-scoping
-      // wrapper (SELECT * … WHERE tenant_id = …) has a column to filter on.
-      const sql = `SELECT tenant_id, ts, source, host_name, user_name, src_ip, dst_ip, event_action FROM events WHERE host_name IN (${inList}) OR user_name IN (${inList}) OR src_ip IN (${inList}) OR dst_ip IN (${inList}) ORDER BY ts DESC LIMIT 20`;
+      // Lucene query over OpenSearch: match the incident's entities against host / user /
+      // IP fields (an entity may be a hostname, a username, or an IP).
+      const esc = (e: string) => `"${e.replace(/"/g, "")}"`;
+      const clauses = entities.flatMap((e) => [`host.name:${esc(e)}`, `user.name:${esc(e)}`, `source.ip:${esc(e)}`, `destination.ip:${esc(e)}`]);
+      const query = clauses.join(" OR ");
       try {
-        const data = (await backend("search", { method: "POST", body: JSON.stringify({ engine: "clickhouse", query: sql, size: 20 }) })) as { rows: Row[] };
+        const data = (await backend("search", { method: "POST", body: JSON.stringify({ engine: "opensearch", query, size: 20 }) })) as { rows: Row[] };
         if (!cancelled) setEvidence(data.rows ?? []);
       } catch {
-        if (!cancelled) setEvError("No live evidence — connect ClickHouse and ingest events.");
+        if (!cancelled) setEvError("No live evidence — connect OpenSearch and ingest events.");
       } finally {
         if (!cancelled) setEvLoading(false);
       }
@@ -145,7 +145,7 @@ export function IncidentDetail({ incident: initial }: { incident: IncidentRecord
             </div>
           </Panel>
 
-          <Panel title="Live evidence" eyebrow="Straight from ClickHouse" action={<StatusLabel tone={evidence.length ? "green" : "neutral"}>{evidence.length} events</StatusLabel>}>
+          <Panel title="Live evidence" eyebrow="Straight from OpenSearch" action={<StatusLabel tone={evidence.length ? "green" : "neutral"}>{evidence.length} events</StatusLabel>}>
             <div className="p-4">
               {evLoading ? (
                 <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading events for {entities.join(", ") || "this incident"}…</p>

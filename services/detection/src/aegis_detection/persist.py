@@ -24,23 +24,26 @@ def persist_incidents(incidents: list[dict[str, Any]], *, tenant_id: str) -> int
     """Insert incident candidates for ``tenant_id``; returns the number written."""
     if not incidents:
         return 0
+    import json  # noqa: PLC0415
+
     import psycopg  # noqa: PLC0415
 
-    dsn = get_settings().pg_url.replace("postgresql+psycopg://", "postgresql://")
+    dsn = get_settings().pg_dsn
     written = 0
     with psycopg.connect(dsn, autocommit=True) as conn, conn.cursor() as cur:
         cur.execute("SET app.current_tenant = %s", (tenant_id,))
         for incident in incidents:
+            data = {
+                "title": _title(incident),
+                "severity": incident.get("severity", "medium"),
+                "status": "open",
+                "correlation_key": incident.get("correlation_key"),
+                "entities": incident.get("entities", []),
+                "rule_id": incident.get("rule_id"),
+            }
             cur.execute(
-                "INSERT INTO incidents (tenant_id, title, severity, correlation_key, tags) "
-                "VALUES (%s, %s, %s, %s, %s)",
-                (
-                    tenant_id,
-                    _title(incident),
-                    incident.get("severity", "medium"),
-                    incident.get("correlation_key"),
-                    incident.get("entities", []),
-                ),
+                "INSERT INTO aegis.records (tenant_id, kind, data) VALUES (%s, 'incident', %s)",
+                (tenant_id, json.dumps(data)),
             )
             written += 1
     log.info("incidents.persist", tenant_id=tenant_id, count=written)

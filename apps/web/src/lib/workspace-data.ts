@@ -313,7 +313,7 @@ export const workspaceConfigs: Record<WorkspaceKey, WorkspaceConfig> = {
     records: incidentRows.map((row, index) => ({
       ...row,
       id: `CFG-${index + 1}`,
-      primary: ["Default ClickHouse datastore", "OpenSearch federation", "ECS normalization", "Raw archive retention", "PII redaction policy"][index],
+      primary: ["OpenSearch datastore", "Log ingestion", "ECS normalization", "Raw archive retention", "PII redaction policy"][index],
       secondary: ["chdb local - server production", "Tenant-scoped indices", "Vector VRL transform", "Local filesystem", "Agent prompt boundary"][index],
       source: ["All events", "Federated search", "Ingestion", "Artifacts", "Sensitive data"][index],
       status: index === 4 ? "Review" : "Enabled",

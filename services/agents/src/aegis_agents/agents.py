@@ -16,7 +16,6 @@ from aegis_agents import instructions as ins
 from aegis_agents.hooks import HOOKS
 from aegis_agents.models import balanced, fast, reasoner
 from aegis_agents.tools import (
-    clickhouse_query,
     ioc_reputation,
     opensearch_search,
     rule_backtest,
@@ -58,7 +57,7 @@ def build_triage(db: PostgresDb | None = None) -> Agent:
         name="Triage",
         role="Deduplicate, correlate and score incidents; decide auto-close vs escalate.",
         model=fast(),
-        tools=[clickhouse_query],
+        tools=[opensearch_search],
         tool_hooks=HOOKS,
         db=db,
         instructions=ins.TRIAGE,
@@ -72,7 +71,7 @@ def build_investigation(db: PostgresDb | None = None) -> Agent:
         name="Investigation",
         role="Enrich alerts, query telemetry, build a MITRE-mapped attack narrative.",
         model=reasoner(),
-        tools=[clickhouse_query, opensearch_search, ioc_reputation],
+        tools=[opensearch_search, ioc_reputation],
         tool_hooks=HOOKS,
         db=db,
         instructions=ins.INVESTIGATION,
@@ -118,7 +117,7 @@ def build_detection_eng(db: PostgresDb | None = None) -> Agent:
         name="DetectionEngineering",
         role="Generate and tune detection rules (Vibe Detection).",
         model=reasoner(),
-        tools=[rule_validate, rule_backtest, clickhouse_query],
+        tools=[rule_validate, rule_backtest, opensearch_search],
         tool_hooks=HOOKS,
         db=db,
         instructions=ins.DETECTION_ENG,
@@ -132,7 +131,7 @@ def build_reporting(db: PostgresDb | None = None) -> Agent:
         name="Reporting",
         role="Write case reports and executive summaries.",
         model=balanced(),
-        tools=[clickhouse_query],
+        tools=[opensearch_search],
         tool_hooks=HOOKS,
         db=db,
         instructions=ins.REPORTING,

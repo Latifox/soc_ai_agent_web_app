@@ -1,8 +1,8 @@
 """MCP tool wiring — connect the crew to the remote MCP servers.
 
 Native in-process tools remain the default (zero infra). When the MCP sidecars are up
-(``mcp-clickhouse --http``, ``mcp-threatintel --http``, ``mcp-soar --http``, and the
-upstream ``opensearch-agent-server --with-mcp``), set ``AEGIS_MCP_ENABLED=1`` and attach
+(``mcp-threatintel --http``, ``mcp-soar --http``, and the upstream
+``opensearch-agent-server --with-mcp``), set ``AEGIS_MCP_ENABLED=1`` and attach
 ``build_mcp_tools()`` to agents — same tool names, served out-of-process.
 """
 
@@ -16,7 +16,6 @@ from aegis_core import get_logger, get_settings
 log = get_logger(__name__)
 
 DEFAULT_ENDPOINTS = {
-    "clickhouse": "http://localhost:8931/mcp",
     "threatintel": "http://localhost:8933/mcp",
     "soar": "http://localhost:8934/mcp",
 }
@@ -31,7 +30,6 @@ def mcp_endpoints() -> list[str]:
     """The MCP endpoints for this deployment (ours + opensearch-agent-server)."""
     settings = get_settings()
     urls = [
-        os.environ.get("MCP_CLICKHOUSE_URL", DEFAULT_ENDPOINTS["clickhouse"]),
         os.environ.get("MCP_THREATINTEL_URL", DEFAULT_ENDPOINTS["threatintel"]),
         os.environ.get("MCP_SOAR_URL", DEFAULT_ENDPOINTS["soar"]),
         f"{settings.opensearch_agent_server_url.rstrip('/')}/mcp",

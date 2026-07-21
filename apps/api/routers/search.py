@@ -1,18 +1,18 @@
-"""Search API — tenant-scoped queries over ClickHouse or OpenSearch (investigations/hunting).
+"""Search API — tenant-scoped queries over OpenSearch (investigations / hunting).
 
-ClickHouse accepts a read-only SQL statement; OpenSearch accepts a Lucene ``query_string``.
-Both are constrained to the caller's tenant by the underlying adapters.
+Accepts a Lucene ``query_string`` and runs it against the tenant's ``t-{tenant}-*`` indices
+via the tenant's granted connector (or the default). Federated search delegates to an
+external SIEM using the tenant's stored integration creds.
 """
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from fastapi import APIRouter
 
-from aegis_core import clickhouse_for_tenant, federated_search, get_settings, opensearch_for_tenant
-from aegis_core.errors import NotFoundError, PermissionDeniedError
+from aegis_core import federated_search, get_settings, opensearch_for_tenant
+from aegis_core.errors import NotFoundError
 
 from apps.api.deps import CurrentTenant
 from apps.api.schemas import FederatedSearchRequest, SearchRequest
@@ -20,21 +20,14 @@ from apps.api.store import integrations_repo
 
 router = APIRouter(prefix="/search", tags=["search"])
 
-_READONLY = re.compile(r"^\s*(with|select)\b", re.IGNORECASE)
-_FORBIDDEN = re.compile(r"\b(insert|alter|drop|delete|update|create|truncate|attach)\b", re.IGNORECASE)
-
 
 @router.post("")
 async def search(body: SearchRequest, tenant: CurrentTenant) -> dict[str, Any]:
-    """Run a tenant-scoped search against ClickHouse or OpenSearch."""
-    settings = get_settings()
-    if body.engine == "clickhouse":
-        if not _READONLY.match(body.query) or _FORBIDDEN.search(body.query):
-            raise PermissionDeniedError("clickhouse search allows read-only SELECT/WITH only")
-        rows = clickhouse_for_tenant(tenant.tenant_id, settings).query(body.query, tenant_id=tenant.tenant_id)
-        return {"engine": "clickhouse", "count": len(rows), "rows": rows}
-    query = {"query_string": {"query": body.query}}
-    rows = opensearch_for_tenant(tenant.tenant_id, settings).search(query, tenant_id=tenant.tenant_id, size=body.size)
+    """Run a tenant-scoped Lucene search against OpenSearch."""
+    query = {"query_string": {"query": body.query or "*", "analyze_wildcard": True}}
+    rows = opensearch_for_tenant(tenant.tenant_id, get_settings()).search(
+        query, tenant_id=tenant.tenant_id, size=body.size
+    )
     return {"engine": "opensearch", "count": len(rows), "rows": rows}
 
 

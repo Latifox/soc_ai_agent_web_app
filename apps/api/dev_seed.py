@@ -144,12 +144,6 @@ _INTEGRATIONS: list[dict[str, Any]] = [
     {"provider": "datadog", "name": "Datadog", "status": "disconnected", "config": {}},
     {"provider": "okta", "name": "Okta", "status": "connected", "config": {"org": "demo-org"}},
     {
-        "provider": "clickhouse",
-        "name": "ClickHouse",
-        "status": "disconnected",
-        "config": {"host": "localhost", "port": 8123, "database": "aegis", "user": "default", "password": "", "agent_access": True},
-    },
-    {
         "provider": "opensearch",
         "name": "OpenSearch",
         "status": "disconnected",
@@ -180,8 +174,77 @@ _POLICIES = [
 ]
 
 
+_EVENTS_TEMPLATE = {
+    "index_patterns": ["t-*-events"],
+    "template": {
+        "mappings": {
+            "properties": {
+                "@timestamp": {"type": "date"},
+                "source_tool": {"type": "keyword"},
+                "message": {"type": "text"},
+                "event": {"properties": {"category": {"type": "keyword"}, "type": {"type": "keyword"}, "action": {"type": "keyword"}}},
+                "source": {"properties": {"ip": {"type": "ip"}}},
+                "destination": {"properties": {"ip": {"type": "ip"}, "port": {"type": "integer"}}},
+                "host": {"properties": {"name": {"type": "keyword"}}},
+                "user": {"properties": {"name": {"type": "keyword"}}},
+            }
+        }
+    },
+}
+
+
+def _event(mins: float, tool: str, cat: str, action: str, host: str, user: str, sip: str, dip: str = "10.0.0.10", dport: int = 0, msg: str = "") -> dict[str, Any]:
+    return {
+        "@timestamp": (datetime.now(UTC) - timedelta(minutes=mins)).isoformat(),
+        "source_tool": tool,
+        "event": {"category": cat, "type": "info", "action": action},
+        "source": {"ip": sip},
+        "destination": {"ip": dip, "port": dport},
+        "host": {"name": host},
+        "user": {"name": user},
+        "message": msg or f"{action} on {host} by {user} from {sip}",
+    }
+
+
+def _demo_events() -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    # Fortinet network traffic around WIN-02 / jane.doe (matches the PowerShell incident).
+    for i in range(20):
+        events.append(_event(2 + i * 3, "fortinet", "network", "accept", "WIN-02", "jane.doe", "10.0.0.5", "8.8.8.8", 1000 + i, "allowed"))
+    # A couple of pipeline/generic logs.
+    events.append(_event(1, "logstash", "network", "accept", "fw03", "unknown", "172.27.0.1", "10.0.0.2", 443, "fresh ingest"))
+    events.append(_event(4, "logstash", "network", "accept", "fw02", "unknown", "172.27.0.2", "10.0.0.3", 443, "manual test"))
+    # DC Sync context for WIN-DC-01 / svc-backup.
+    for i in range(4):
+        events.append(_event(30 + i, "windows", "authentication", "replication", "WIN-DC-01", "svc-backup", "10.0.0.9", "10.0.0.1", 389, "DRSUAPI replication"))
+    return events
+
+
+def seed_opensearch_events(tenant_id: str = DEMO_TENANT) -> int:
+    """Best-effort: ensure the events index template + demo events exist in OpenSearch."""
+    try:
+        import httpx  # noqa: PLC0415
+
+        from aegis_core import get_settings, opensearch_for_tenant  # noqa: PLC0415
+
+        settings = get_settings()
+        base = settings.opensearch_url.rstrip("/")
+        auth = (settings.opensearch_user, settings.opensearch_password)
+        with httpx.Client(timeout=8.0, verify=False) as c:  # noqa: S501 - dev certs
+            # Skip if this tenant already has events.
+            cnt = c.post(f"{base}/t-{tenant_id}-events/_count", json={"query": {"match_all": {}}}, auth=auth)
+            if cnt.status_code == 200 and cnt.json().get("count", 0) > 0:
+                return 0
+            c.put(f"{base}/_index_template/aegis-events", json=_EVENTS_TEMPLATE, auth=auth)
+        client = opensearch_for_tenant(tenant_id, settings)
+        return client.bulk_index(_demo_events(), tenant_id=tenant_id, suffix="events")
+    except Exception:  # noqa: BLE001 - OpenSearch may not be up locally; degrade silently
+        return 0
+
+
 def seed_dev_data(tenant_id: str = DEMO_TENANT) -> None:
     """Load demo records for ``tenant_id`` (idempotent)."""
+    seed_opensearch_events(tenant_id)
     if rules_repo.list(tenant_id):
         return
     for rule in _RULES:

@@ -1,14 +1,13 @@
 """Argus tools — native (function) tools + MCP tool layer.
 
-Native tools call tenant-scoped Aegis services (ClickHouse, SOAR, rules) and enforce
-isolation via the tenant context. The OpenSearch tool layer is the upstream
-``opensearch-agent-server`` reached over MCP (see ``docs/10-external-tools.md``);
+Native tools call tenant-scoped Aegis services (OpenSearch, SOAR, rules) and enforce
+isolation via the tenant context. The OpenSearch tool layer is also available as the
+upstream ``opensearch-agent-server`` over MCP (see ``docs/10-external-tools.md``);
 ``build_opensearch_mcp`` constructs that connection.
 """
 
 from __future__ import annotations
 
-from aegis_agents.tools.clickhouse import clickhouse_query
 from aegis_agents.tools.opensearch import opensearch_search
 from aegis_agents.tools.rules import rule_backtest, rule_validate
 from aegis_agents.tools.soar import (
@@ -33,7 +32,6 @@ def build_opensearch_mcp():  # noqa: ANN201 - agno MCPTools type imported lazily
 
 __all__ = [
     "build_opensearch_mcp",
-    "clickhouse_query",
     "ioc_reputation",
     "opensearch_search",
     "rule_backtest",

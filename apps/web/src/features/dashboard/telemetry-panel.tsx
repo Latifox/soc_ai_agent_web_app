@@ -29,7 +29,7 @@ export function TelemetryPanel({ telemetry }: { telemetry: TelemetryOverview }) 
             <Database className="size-5" />
           </span>
           <p className="max-w-md text-sm text-muted-foreground">
-            No live telemetry yet. Connect ClickHouse and grant the crew access to stream event volume,
+            No live telemetry yet. Connect OpenSearch and grant the crew access to stream event volume,
             sources, and categories straight from your datalake.
           </p>
           <Button size="sm" variant="primary" onClick={() => router.push("/integrations")}>
@@ -55,7 +55,7 @@ export function TelemetryPanel({ telemetry }: { telemetry: TelemetryOverview }) 
   return (
     <Panel
       title="Ingest telemetry"
-      eyebrow={`Last ${telemetry.window_hours}h · live from ClickHouse`}
+      eyebrow={`Last ${telemetry.window_hours}h · live from OpenSearch`}
       action={<StatusLabel tone="green">{compact(telemetry.total_events)} events</StatusLabel>}
     >
       <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(220px,1fr)]">

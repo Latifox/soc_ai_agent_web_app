@@ -147,7 +147,7 @@ export async function liveDashboard(): Promise<LiveDashboard> {
   }
 
   const eventsMetric: WorkspaceMetric = telemetry.available
-    ? { label: "Events (24h)", value: compact(telemetry.total_events), detail: "live from ClickHouse", tone: "violet" }
+    ? { label: "Events (24h)", value: compact(telemetry.total_events), detail: "live from OpenSearch", tone: "violet" }
     : { label: "Enabled rules", value: String(metrics.rules.enabled), detail: `${metrics.rules.mitre_techniques.length} MITRE techniques`, tone: "violet" };
 
   return {
@@ -512,7 +512,7 @@ export async function liveSettingsConfig(): Promise<WorkspaceConfig> {
     { id: "TENANT", primary: "Tenant — Demo Org", secondary: "plan: dev · region: local", severity: "info", source: "Supabase", updated: "live", status: "Active", owner: "Admin", description: "Tenant configuration and retention." },
     { id: "AUTH", primary: "Authentication — Supabase Auth", secondary: "password + magic link · MFA available", severity: "info", source: "Supabase", updated: "live", status: "Enabled", owner: "Admin", description: "SSO/SAML and SCIM configurable per tenant." },
     { id: "AGENTS", primary: "Argus agent crew", secondary: `${policies.length} action classes governed`, severity: "low", source: "AgentOS", updated: "live", status: "Running", owner: "Argus", description: "Autonomous SOC crew with HITL approvals." },
-    { id: "DATA", primary: "Data plane", secondary: "ClickHouse (chdb) · OpenSearch · local ./data", severity: "info", source: "Aegis core", updated: "live", status: "Local-first", owner: "Platform", description: "Local-first dev; server backends in prod." },
+    { id: "DATA", primary: "Data plane", secondary: "OpenSearch · Supabase Postgres · logs", severity: "info", source: "Aegis core", updated: "live", status: "Local-first", owner: "Platform", description: "OpenSearch for logs/detection; Supabase Postgres for metadata." },
   ];
   return {
     ...workspaceConfigs.settings,

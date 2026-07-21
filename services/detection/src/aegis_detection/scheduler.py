@@ -11,7 +11,6 @@ from collections.abc import Iterable
 from typing import Any
 
 from aegis_core import get_logger
-from aegis_detection.compile import compile_rule
 from aegis_detection.run import run_rule
 from aegis_detection.schema import Rule
 
@@ -19,16 +18,22 @@ log = get_logger(__name__)
 
 
 def run_one(rule: Rule | dict, *, tenant_id: str) -> dict[str, Any]:
-    """Compile + run a single rule; return a match summary (no alert if learning_mode)."""
+    """Run a single rule against OpenSearch; return a match summary (no alert if learning)."""
     parsed = rule if isinstance(rule, Rule) else Rule.from_yaml_obj(rule)
-    compiled = compile_rule(parsed)
-    rows = run_rule(compiled, tenant_id=tenant_id)
-    entities = sorted({str(r.get("src_ip") or r.get("user_name") or "") for r in rows[:100]} - {""})
+    result = run_rule(parsed, tenant_id=tenant_id)
+    # Threshold rules report breaches (entities per bucket); query rules report event hits.
+    if result["breaches"]:
+        rows = result["breaches"]
+        entities = sorted({e for b in result["breaches"] for e in b.get("entities", [])})
+    else:
+        rows = [{"entities": [str(h.get("host", {}).get("name") or h.get("source", {}).get("ip") or "")]} for h in result["sample"]]
+        entities = sorted({e for r in rows for e in r["entities"]} - {""})
+    matches = result["matches"]
     summary = {
-        "rule_id": compiled.rule_id,
-        "type": compiled.type,
-        "matches": len(rows),
-        "alert": bool(rows) and not parsed.learning_mode,
+        "rule_id": parsed.rule_id,
+        "type": parsed.type,
+        "matches": matches,
+        "alert": bool(matches) and not parsed.learning_mode,
         "learning_mode": parsed.learning_mode,
         "severity": parsed.severity,
         "entities": entities,
@@ -38,7 +43,8 @@ def run_one(rule: Rule | dict, *, tenant_id: str) -> dict[str, Any]:
         from aegis_detection.emit import emit_detection  # noqa: PLC0415
 
         summary["detection_id"] = emit_detection(
-            tenant_id=tenant_id, rule_id=compiled.rule_id, severity=parsed.severity, rows=rows
+            tenant_id=tenant_id, rule_id=parsed.rule_id, severity=parsed.severity,
+            rows=[{"entities": entities}],
         )
     return summary
 
