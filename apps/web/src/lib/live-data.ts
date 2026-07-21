@@ -201,20 +201,85 @@ function toTimeline(incident: IncidentRecord): TimelineItem[] {
   return items;
 }
 
+export interface InvestigationDetail {
+  narrative: string;
+  entities: string[];
+  hosts: number;
+  users: number;
+  ips: number;
+  mitre: string[];
+  correlations: string[];
+  graphEdges: string[];
+  confidence: number;
+  recommended: string;
+  approvalId?: string;
+  approvalTitle: string;
+  approvalSummary: string;
+  approvalSteps: string[];
+  evidenceCaption: string;
+}
+
 export interface LiveInvestigation {
   queue: QueueItem[];
   timelines: Record<string, TimelineItem[]>;
+  details: Record<string, InvestigationDetail>;
   mitre: string[];
 }
 
+const CONFIDENCE: Record<string, number> = { critical: 94, high: 86, medium: 71, low: 58, info: 40 };
+const IP_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
+
 export async function liveInvestigation(): Promise<LiveInvestigation> {
-  const [incidents, metrics] = await Promise.all([getIncidents(), getMetrics()]);
+  const [incidents, metrics, approvals] = await Promise.all([getIncidents(), getMetrics(), getApprovals()]);
   const queue = incidentQueueItems(incidents);
   const timelines: Record<string, TimelineItem[]> = {};
+  const details: Record<string, InvestigationDetail> = {};
+  const pending = approvals.filter((a) => a.status === "pending");
+
   for (const incident of incidents) {
-    timelines[incident.id.slice(0, 8).toUpperCase()] = toTimeline(incident);
+    const key = incident.id.slice(0, 8).toUpperCase();
+    timelines[key] = toTimeline(incident);
+    const entities = incident.entities ?? [];
+    const ips = entities.filter((e) => IP_RE.test(e));
+    const users = entities.filter((e) => !IP_RE.test(e) && !/[-]|WIN|SRV|DC|HOST/i.test(e));
+    const hosts = entities.filter((e) => !ips.includes(e) && !users.includes(e));
+    const edges = entities.slice(0, -1).map((e, i) => `${e} -> ${entities[i + 1]}`);
+    const correlations = incidents
+      .filter((o) => o.id !== incident.id)
+      .filter((o) => (o.entities ?? []).some((e) => entities.includes(e)) || (o.tags ?? []).some((t) => incident.tags?.includes(t)))
+      .slice(0, 3)
+      .map((o) => `Shares ${(o.entities ?? []).find((e) => entities.includes(e)) ? "an entity" : "a technique"} with "${o.title}"`);
+    const approval = pending.find((a) => Object.values(a.args).some((v) => entities.includes(String(v))));
+    const eventsCount = timelines[key].length;
+    details[key] = {
+      narrative: incident.description ?? "No Argus narrative recorded for this incident yet.",
+      entities,
+      hosts: hosts.length,
+      users: users.length,
+      ips: ips.length,
+      mitre: (incident.tags ?? []).filter((t) => /^T1\d{3}/i.test(t)),
+      correlations,
+      graphEdges: edges.length ? edges : entities.map((e) => `${e} (isolated)`),
+      confidence: CONFIDENCE[incident.severity] ?? 60,
+      recommended: approval
+        ? `${titleCase(approval.tool_name.replace(/^soar_/, ""))} — approval pending`
+        : incident.status === "resolved"
+          ? "Resolved — no action required"
+          : "Continue investigation and enrich indicators",
+      approvalId: approval?.id,
+      approvalTitle: approval ? titleCase(approval.tool_name.replace(/^soar_/, "")) : "Continue investigation",
+      approvalSummary: approval
+        ? "Destructive action — requires human approval, fully audited before execution."
+        : incident.status === "resolved"
+          ? "Incident resolved. No action pending."
+          : "No destructive action pending. Continue enriching the investigation.",
+      approvalSteps: approval
+        ? Object.entries(approval.args).map(([k, v]) => `${titleCase(k)}: ${v}`)
+        : [],
+      evidenceCaption: `${eventsCount} evidence event${eventsCount === 1 ? "" : "s"} from correlated detections (${incident.severity} severity).`,
+    };
   }
-  return { queue, timelines, mitre: metrics.rules.mitre_techniques };
+  return { queue, timelines, details, mitre: metrics.rules.mitre_techniques };
 }
 
 // ── Workspaces ───────────────────────────────────────────────────────────────

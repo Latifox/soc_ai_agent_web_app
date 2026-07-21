@@ -265,24 +265,31 @@ export function EventTimeline({ events }: { events: TimelineItem[] }) {
   );
 }
 
-export function ConfidenceMeter({ value }: { value: number }) {
+export function ConfidenceMeter({ value, caption }: { value: number; caption?: string }) {
+  const label = value >= 80 ? "High confidence" : value >= 60 ? "Medium confidence" : "Low confidence";
   return (
     <div>
-      <div className="mb-2 flex items-end justify-between"><span className="text-sm font-semibold">High confidence</span><span className="font-mono text-xs text-muted-foreground">{value}%</span></div>
+      <div className="mb-2 flex items-end justify-between"><span className="text-sm font-semibold">{label}</span><span className="font-mono text-xs text-muted-foreground">{value}%</span></div>
       <div className="h-1.5 overflow-hidden rounded-full bg-border" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100} aria-label="Evidence confidence">
         <div className="h-full rounded-full bg-low" style={{ width: `${value}%` }} />
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">24 of 28 evidence items support malicious activity.</p>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{caption ?? "Confidence derived from incident severity and correlated evidence."}</p>
     </div>
   );
 }
 
 export function ApprovalCard({
   status = "pending",
+  title = "Continue investigation",
+  summary = "No destructive action is pending for this incident.",
+  steps = [],
   onApprove,
   onReject,
 }: {
   status?: "pending" | "approved" | "rejected";
+  title?: string;
+  summary?: string;
+  steps?: string[];
   onApprove?: () => void;
   onReject?: () => void;
 }) {
@@ -291,12 +298,13 @@ export function ApprovalCard({
   return (
     <div className="border-t border-border bg-primary/[0.035] p-4">
       <div className="flex items-center gap-2 text-primary"><Sparkles className="size-4" aria-hidden="true" /><span className="soc-eyebrow text-primary">Argus recommendation</span></div>
-      <h3 className="mt-3 text-sm font-semibold">Contain the affected host</h3>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">High-confidence containment is recommended to prevent lateral movement.</p>
-      <div className="mt-3 space-y-2 rounded-control border border-border bg-background/60 p-3 text-xs">
-        <p className="flex items-center gap-2"><CheckCircle2 className="size-3.5 text-primary" /> Isolate <code className="font-mono">WIN-7F3G2K9H8</code></p>
-        <p className="flex items-center gap-2"><CheckCircle2 className="size-3.5 text-primary" /> Suspend session <code className="font-mono">jsmith</code></p>
-      </div>
+      <h3 className="mt-3 text-sm font-semibold">{title}</h3>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{summary}</p>
+      {steps.length > 0 && (
+        <div className="mt-3 space-y-2 rounded-control border border-border bg-background/60 p-3 text-xs">
+          {steps.map((step) => <p key={step} className="flex items-center gap-2"><CheckCircle2 className="size-3.5 text-primary" /> <span className="font-mono">{step}</span></p>)}
+        </div>
+      )}
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Button variant="secondary" size="sm" disabled={approved || rejected} onClick={onReject}>Reject</Button>
         <Button variant="primary" size="sm" disabled={approved || rejected} onClick={onApprove}><ShieldAlert aria-hidden="true" /> Approve</Button>

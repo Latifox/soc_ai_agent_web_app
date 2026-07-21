@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Activity,
@@ -24,18 +24,19 @@ import {
   StatusLabel,
 } from "@/components/soc/flagship-ui";
 import type { QueueItem, TimelineItem } from "@/components/soc/flagship-ui";
+import type { InvestigationDetail } from "@/lib/live-data";
 import { cn } from "@/lib/utils";
 
-const tabs = ["Attack story", "Timeline", "Graph", "Evidence (24)", "Correlations (7)", "Notes (0)"];
 const filters = ["All", "Identity", "Endpoint", "Network", "Process"];
 
 interface InvestigationWorkspaceProps {
   queue: QueueItem[];
   timelines: Record<string, TimelineItem[]>;
+  details: Record<string, InvestigationDetail>;
   mitre: string[];
 }
 
-export function InvestigationWorkspace({ queue, timelines, mitre }: InvestigationWorkspaceProps) {
+export function InvestigationWorkspace({ queue, timelines, details, mitre }: InvestigationWorkspaceProps) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(queue[0]?.id ?? "");
   const [activeTab, setActiveTab] = useState("Attack story");
@@ -44,6 +45,7 @@ export function InvestigationWorkspace({ queue, timelines, mitre }: Investigatio
   const [regeneratedAt, setRegeneratedAt] = useState("");
   const [approvalState, setApprovalState] = useState<"pending" | "approved" | "rejected">("pending");
   const [notes, setNotes] = useState("");
+  useEffect(() => setApprovalState("pending"), [selectedId]);
   const selected = queue.find((incident) => incident.id === selectedId) ?? queue[0];
   const eventSource = useMemo(() => {
     const base = timelines[selected?.id ?? ""] ?? [];
@@ -53,6 +55,15 @@ export function InvestigationWorkspace({ queue, timelines, mitre }: Investigatio
     () => activeFilter === "All" ? eventSource : eventSource.filter((event) => event.category === activeFilter),
     [activeFilter, eventSource],
   );
+  const detail = details[selected?.id ?? ""];
+  const tabs = [
+    "Attack story",
+    "Timeline",
+    "Graph",
+    `Evidence (${eventSource.length})`,
+    `Correlations (${detail?.correlations.length ?? 0})`,
+    `Notes (${notes ? 1 : 0})`,
+  ];
 
   if (!selected) {
     return (
@@ -82,8 +93,8 @@ export function InvestigationWorkspace({ queue, timelines, mitre }: Investigatio
                 <h1 className="mt-2 text-xl font-semibold tracking-[-0.02em] text-foreground">{selected.title}</h1>
                 <div className="mt-3 flex flex-wrap gap-x-7 gap-y-2 text-xs">
                   <span><span className="soc-label mr-2">Status</span><StatusLabel>{selected.status}</StatusLabel></span>
-                  <span><span className="soc-label mr-2">First seen</span><span className="font-mono text-muted-foreground">Jul 20, 13:58:41</span></span>
-                  <span><span className="soc-label mr-2">Owner</span><span className="text-muted-foreground">Unassigned</span></span>
+                  <span><span className="soc-label mr-2">First seen</span><span className="font-mono text-muted-foreground">{selected.time}</span></span>
+                  <span><span className="soc-label mr-2">Entity</span><span className="font-mono text-muted-foreground">{selected.entity}</span></span>
                 </div>
               </div>
               <Button size="sm" variant="secondary" onClick={() => router.push("/cases")}>Open full case <ExternalLink aria-hidden="true" /></Button>
@@ -101,9 +112,8 @@ export function InvestigationWorkspace({ queue, timelines, mitre }: Investigatio
                 <div className="flex items-center gap-2 text-primary"><span className="flex size-7 items-center justify-center rounded-full bg-primary/12"><Bot className="size-4" /></span><span className="soc-eyebrow text-primary">Argus attack narrative</span></div>
                 <button type="button" onClick={() => setRegeneratedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))} className="flex items-center gap-1.5 text-[11px] text-primary"><RefreshCw className="size-3" /> Regenerate</button>
               </div>
-              <p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground">
-                Argus detected a suspicious interactive login for <span className="font-mono text-foreground">jsmith</span> from an unusual location, followed by encoded PowerShell execution. The process accessed <span className="font-mono text-foreground">lsass.exe</span> memory, consistent with credential dumping (T1003.001). Subsequent activity shows lateral movement to two hosts via ADMIN$ and PowerShell Remoting.
-              </p>
+              <p className="mt-3 max-w-4xl text-sm leading-6 text-muted-foreground">{detail?.narrative ?? "No Argus narrative for this incident yet."}</p>
+              {detail?.recommended ? <p className="mt-2 text-xs"><span className="soc-label mr-2">Recommended</span><span className="text-foreground">{detail.recommended}</span></p> : null}
               {regeneratedAt ? <p className="mt-2 text-[11px] text-primary">Narrative regenerated at {regeneratedAt}.</p> : null}
             </div>
             <div className="flex flex-col gap-3 border-b border-border py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -114,7 +124,7 @@ export function InvestigationWorkspace({ queue, timelines, mitre }: Investigatio
             </div>
             {activeTab === "Graph" ? (
               <div className="grid gap-3 pt-4 md:grid-cols-3">
-                {["jsmith -> WIN-7F3G2K9H8", "WIN-7F3G2K9H8 -> WIN-4XJ2L7D3", "WIN-4XJ2L7D3 -> SRV-2M9P8Q1"].map((edge) => (
+                {(detail?.graphEdges.length ? detail.graphEdges : ["No entity relationships"]).map((edge) => (
                   <div key={edge} className="soc-inset p-4"><p className="soc-label">Relationship</p><p className="mt-2 font-mono text-xs">{edge}</p><StatusLabel tone="amber">Observed</StatusLabel></div>
                 ))}
               </div>
@@ -126,7 +136,7 @@ export function InvestigationWorkspace({ queue, timelines, mitre }: Investigatio
               </div>
             ) : activeTab.startsWith("Correlations") ? (
               <div className="space-y-2 pt-4">
-                {["Same user triggered MFA fatigue rule 18m earlier", "Two hosts share ADMIN$ access path", "Payload hash appears in one prior tenant alert"].map((item) => (
+                {(detail?.correlations.length ? detail.correlations : ["No correlated incidents"]).map((item) => (
                   <div key={item} className="flex items-center justify-between rounded-control border border-border px-3 py-2 text-sm"><span>{item}</span><StatusLabel tone="violet">Linked</StatusLabel></div>
                 ))}
               </div>
@@ -144,10 +154,12 @@ export function InvestigationWorkspace({ queue, timelines, mitre }: Investigatio
         <aside className="soc-scrollbar bg-surface-subtle/25 xl:max-h-[calc(100vh-3.5rem)] xl:overflow-y-auto">
           <Panel title="Affected entities" className="m-3 mb-2 shadow-none">
             <div className="grid grid-cols-3 border-b border-border text-center">
-              {[{ icon: Laptop, value: "3", label: "Hosts" }, { icon: UserRound, value: "1", label: "User" }, { icon: Network, value: "2", label: "IPs" }].map(({ icon: Icon, value, label }) => <div key={label} className="border-r border-border px-2 py-3 last:border-r-0"><Icon className="mx-auto size-4 text-muted-foreground" /><p className="mt-1 text-sm font-semibold">{value}</p><p className="text-[10px] text-muted-foreground">{label}</p></div>)}
+              {[{ icon: Laptop, value: detail?.hosts ?? 0, label: "Hosts" }, { icon: UserRound, value: detail?.users ?? 0, label: "Users" }, { icon: Network, value: detail?.ips ?? 0, label: "IPs" }].map(({ icon: Icon, value, label }) => <div key={label} className="border-r border-border px-2 py-3 last:border-r-0"><Icon className="mx-auto size-4 text-muted-foreground" /><p className="mt-1 text-sm font-semibold">{value}</p><p className="text-[10px] text-muted-foreground">{label}</p></div>)}
             </div>
             <div className="space-y-2 p-3 text-xs">
-              <div className="flex items-center justify-between gap-2"><span className="font-mono">{selected?.entity ?? "—"}</span><StatusLabel tone={selected && ["critical", "high"].includes(selected.severity) ? "red" : "amber"}>{selected ? selected.severity : "—"}</StatusLabel></div>
+              {(detail?.entities.length ? detail.entities : ["—"]).map((entity) => (
+                <div key={entity} className="flex items-center justify-between gap-2"><span className="truncate font-mono">{entity}</span><StatusLabel tone={selected && ["critical", "high"].includes(selected.severity) ? "red" : "amber"}>{selected ? selected.severity : "—"}</StatusLabel></div>
+              ))}
               <DetailLink onClick={() => router.push("/assets")}>View all entities</DetailLink>
             </div>
           </Panel>
@@ -160,8 +172,21 @@ export function InvestigationWorkspace({ queue, timelines, mitre }: Investigatio
               )}
             </div>
           </Panel>
-          <Panel title="Evidence confidence" className="m-3 my-2 shadow-none"><div className="p-4"><ConfidenceMeter value={86} /></div></Panel>
-          <ApprovalCard status={approvalState} onApprove={() => setApprovalState("approved")} onReject={() => setApprovalState("rejected")} />
+          <Panel title="Evidence confidence" className="m-3 my-2 shadow-none"><div className="p-4"><ConfidenceMeter value={detail?.confidence ?? 60} caption={detail?.evidenceCaption} /></div></Panel>
+          <ApprovalCard
+            status={approvalState}
+            title={detail?.approvalTitle ?? "Continue investigation"}
+            summary={detail?.approvalSummary ?? "No destructive action pending."}
+            steps={detail?.approvalSteps ?? []}
+            onApprove={async () => {
+              setApprovalState("approved");
+              if (detail?.approvalId) await fetch(`/api/backend/approvals/${detail.approvalId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "approve" }) });
+            }}
+            onReject={async () => {
+              setApprovalState("rejected");
+              if (detail?.approvalId) await fetch(`/api/backend/approvals/${detail.approvalId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "deny" }) });
+            }}
+          />
         </aside>
       </div>
     </div>
