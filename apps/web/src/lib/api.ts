@@ -20,11 +20,18 @@ export class ApiError extends Error {
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session ? { authorization: `Bearer ${session.access_token}` } : {};
+  try {
+    const supabase = await createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session) return { authorization: `Bearer ${session.access_token}` };
+  } catch {
+    // Supabase not configured (local dev without `supabase start`).
+  }
+  // Server-only dev fallback so the console renders real backend data pre-Supabase.
+  const devToken = process.env.AEGIS_DEV_TOKEN;
+  return devToken ? { authorization: `Bearer ${devToken}` } : {};
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {

@@ -63,11 +63,15 @@ class Settings(BaseSettings):
     storage_backend: Literal["local", "supabase", "s3"] = "local"
     storage_local_path: str = "./data/storage"
 
-    # ── LLM (Anthropic / Claude) ────────────────────────────────────────────
+    # ── LLM provider ────────────────────────────────────────────────────────
+    # openrouter (default): one key, any model, ids like "anthropic/claude-sonnet-4.5".
+    # anthropic: direct API with native Claude ids.
+    llm_provider: Literal["openrouter", "anthropic"] = "openrouter"
+    openrouter_api_key: str = ""
     anthropic_api_key: str = ""
-    model_reasoner: str = "claude-fable-5"
-    model_balanced: str = "claude-sonnet-5"
-    model_fast: str = "claude-haiku-4-5-20251001"
+    model_reasoner: str = "anthropic/claude-sonnet-4.5"
+    model_balanced: str = "anthropic/claude-sonnet-4.5"
+    model_fast: str = "anthropic/claude-haiku-4.5"
 
     # ── Threat intel ────────────────────────────────────────────────────────
     virustotal_api_key: str = ""
