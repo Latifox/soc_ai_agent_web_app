@@ -37,8 +37,20 @@ services:
       timeout: 5s
       retries: 10
 
-  # Web UI for OpenSearch (http://localhost:5601). ClickHouse's built-in Play UI is at
-  # http://localhost:8123/play — no extra container needed.
+  # ClickHouse web dashboard (http://localhost:5521) — query builder, tables, metrics.
+  # (ClickHouse also has a built-in Play UI at http://localhost:8123/play.)
+  clickhouse-ui:
+    image: ghcr.io/caioricciuti/ch-ui:latest
+    environment:
+      - VITE_CLICKHOUSE_URL=http://localhost:8123
+      - VITE_CLICKHOUSE_USER=default
+      - VITE_CLICKHOUSE_PASS=
+    ports: ["5521:3488"]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  # Web UI for OpenSearch (http://localhost:5601).
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:2.17.1
     environment:
