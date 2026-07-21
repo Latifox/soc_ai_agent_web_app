@@ -314,6 +314,11 @@ _(loop appends: `<task-id> — <commit hash> — <date>`)_
   incidents persisted to Supabase under RLS; scheduler run_pipeline end-to-end)
 - FE-02 — `48ddadd` — 2026-07-21 (Supabase Auth: ssr clients, middleware, login/magic
   link, callback/signout, stream proxy forwards verified session token)
-- **Verify pass pending:** `uv sync` + `pnpm install` + run test suites (blocked earlier
-  by session limit); then wire MultiMCPTools into the crew (native tools already live).
+- seed/metrics — `398ecee` — 2026-07-21 (dev seed at startup + /metrics aggregates)
+- FE real data — `7f7d19a` — 2026-07-21 (typed API client + auth proxy + live-data layer;
+  all dashboard/workspace/investigation pages render /api/v1 data, demo mocks removed)
+- AI-05/07 — `c2bfc89` — 2026-07-21 (agent memory + session summaries, run context +
+  tenant scope, MultiMCPTools wiring, ArgusService facade, real /assistant/stream SSE +
+  /assistant/vibe-rule endpoints; web proxy retargeted to BFF)
+- **Verify pass pending:** `uv sync` + `pnpm install` + run test suites.
 - INFRA-01 — 7893838 — 2026-07-20 (scaffold + spec)
