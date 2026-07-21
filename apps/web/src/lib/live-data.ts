@@ -15,9 +15,11 @@ import {
   getIntegrations,
   getMetrics,
   getRules,
+  getTelemetry,
   type AgentStatus,
   type IncidentRecord,
   type Metrics,
+  type TelemetryOverview,
 } from "@/lib/api";
 import {
   workspaceConfigs,
@@ -74,6 +76,7 @@ export interface LiveDashboard {
   attention: AttentionItem[];
   agents: AgentStatus[];
   details: Record<string, IncidentDetail>;
+  telemetry: TelemetryOverview;
 }
 
 const RECOMMENDATIONS: Record<string, string> = {
@@ -83,12 +86,13 @@ const RECOMMENDATIONS: Record<string, string> = {
 };
 
 export async function liveDashboard(): Promise<LiveDashboard> {
-  const [metrics, incidents, approvals, integrations, agents] = await Promise.all([
+  const [metrics, incidents, approvals, integrations, agents, telemetry] = await Promise.all([
     getMetrics(),
     getIncidents(),
     getApprovals(),
     getIntegrations(),
     getAgentsStatus(),
+    getTelemetry(),
   ]);
   const critical = metrics.incidents.by_severity["critical"] ?? 0;
   const high = metrics.incidents.by_severity["high"] ?? 0;
@@ -142,11 +146,15 @@ export async function liveDashboard(): Promise<LiveDashboard> {
     };
   }
 
+  const eventsMetric: WorkspaceMetric = telemetry.available
+    ? { label: "Events (24h)", value: compact(telemetry.total_events), detail: "live from ClickHouse", tone: "violet" }
+    : { label: "Enabled rules", value: String(metrics.rules.enabled), detail: `${metrics.rules.mitre_techniques.length} MITRE techniques`, tone: "violet" };
+
   return {
     metrics: [
       { label: "Open incidents", value: String(metrics.incidents.open), detail: `${metrics.incidents.total} total`, tone: metrics.incidents.open ? "red" : "green" },
       { label: "Critical / High", value: `${critical} / ${high}`, detail: "open severity mix", tone: critical + high ? "red" : "green" },
-      { label: "Enabled rules", value: String(metrics.rules.enabled), detail: `${metrics.rules.mitre_techniques.length} MITRE techniques`, tone: "violet" },
+      eventsMetric,
       { label: "Pending approvals", value: String(metrics.approvals.pending), detail: "awaiting analyst", tone: metrics.approvals.pending ? "amber" : "green" },
     ],
     queue: incidentQueueItems(incidents),
@@ -155,7 +163,14 @@ export async function liveDashboard(): Promise<LiveDashboard> {
     attention,
     agents: agents.agents,
     details,
+    telemetry,
   };
+}
+
+function compact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
 export function incidentQueueItems(incidents: IncidentRecord[]): QueueItem[] {

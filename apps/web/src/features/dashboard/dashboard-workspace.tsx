@@ -25,10 +25,11 @@ import {
   WorkspaceTitle,
 } from "@/components/soc/flagship-ui";
 import { cn } from "@/lib/utils";
+import { TelemetryPanel } from "@/features/dashboard/telemetry-panel";
 import type { WorkspaceMetric } from "@/lib/workspace-data";
 import type { QueueItem } from "@/components/soc/flagship-ui";
 import type { AttentionItem, IncidentDetail } from "@/lib/live-data";
-import type { AgentStatus } from "@/lib/api";
+import type { AgentStatus, TelemetryOverview } from "@/lib/api";
 
 interface DashboardWorkspaceProps {
   metrics: WorkspaceMetric[];
@@ -37,6 +38,7 @@ interface DashboardWorkspaceProps {
   agents: AgentStatus[];
   details: Record<string, IncidentDetail>;
   pendingApprovals: number;
+  telemetry: TelemetryOverview;
 }
 
 const AGENT_ICONS: Record<string, typeof Activity> = {
@@ -57,6 +59,7 @@ export function DashboardWorkspace({
   agents,
   details,
   pendingApprovals,
+  telemetry,
 }: DashboardWorkspaceProps) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(queue[0]?.id ?? "");
@@ -69,8 +72,12 @@ export function DashboardWorkspace({
 
   if (!selected) {
     return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center text-sm text-muted-foreground">
-        No incidents yet — connect an integration or enable a rule to begin.
+      <div className="min-h-[calc(100vh-3.5rem)] bg-background pb-6">
+        <WorkspaceTitle eyebrow="Aegis command center · Live" title="Security operations overview" description="No incidents yet — telemetry from your connected sources appears below." />
+        <MetricStrip metrics={metrics} />
+        <div className="p-4 lg:p-5">
+          <TelemetryPanel telemetry={telemetry} />
+        </div>
       </div>
     );
   }
@@ -87,6 +94,9 @@ export function DashboardWorkspace({
       {notice ? (
         <div className="mx-4 mt-4 rounded-control border border-primary/25 bg-primary/10 px-3 py-2 text-sm text-primary lg:mx-5">{notice}</div>
       ) : null}
+      <div className="p-4 pb-0 lg:p-5 lg:pb-0">
+        <TelemetryPanel telemetry={telemetry} />
+      </div>
       <div className="grid gap-4 p-4 lg:p-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.75fr)]">
         <div className="grid min-w-0 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
           <Panel title="Priority queue" eyebrow="Live incidents" action={<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{queue.length}</span>}>

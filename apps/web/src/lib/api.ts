@@ -168,6 +168,26 @@ export interface AgentsStatusResponse {
   agents: AgentStatus[];
 }
 
+export interface TelemetryOverview {
+  available: boolean;
+  reason?: string;
+  window_hours: number;
+  total_events: number;
+  timeline: { bucket: string; count: number }[];
+  top_sources: { name: string; count: number }[];
+  top_categories: { name: string; count: number }[];
+}
+
+export const EMPTY_TELEMETRY: TelemetryOverview = {
+  available: false,
+  window_hours: 24,
+  total_events: 0,
+  timeline: [],
+  top_sources: [],
+  top_categories: [],
+};
+
+export const getTelemetry = () => apiTry<TelemetryOverview>("/telemetry/overview", EMPTY_TELEMETRY);
 export const getRules = () => apiTry<RuleRecord[]>("/rules", []);
 export const getAgentsStatus = () =>
   apiTry<AgentsStatusResponse>("/agents/status", { operational: false, pending_approvals: 0, agents: [] });
