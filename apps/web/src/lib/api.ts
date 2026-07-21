@@ -98,8 +98,10 @@ export interface CaseRecord {
   status: string;
   assignee?: string | null;
   tags: string[];
+  incident_id?: string | null;
   comments?: { author: string; body: string; ts: string }[];
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface IntegrationRecord {
@@ -201,6 +203,7 @@ export const getAgentsStatus = () =>
 export const getIncidents = () => apiTry<IncidentRecord[]>("/incidents", []);
 export const getIncident = (id: string) => apiFetch<IncidentRecord>(`/incidents/${id}`);
 export const getCases = () => apiTry<CaseRecord[]>("/cases", []);
+export const getCase = (id: string) => apiFetch<CaseRecord>(`/cases/${id}`);
 export const getIntegrations = () => apiTry<IntegrationRecord[]>("/integrations", []);
 export const getAssets = () => apiTry<AssetRecord[]>("/assets", []);
 export const getApprovals = () => apiTry<ApprovalRecord[]>("/approvals", []);

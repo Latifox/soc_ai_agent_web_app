@@ -13,7 +13,7 @@ from aegis_core.errors import NotFoundError
 from apps.api.deps import CurrentTenant
 from apps.api.errors import Problem
 from apps.api.rbac import require_permission
-from apps.api.schemas import CaseCreate, CommentCreate
+from apps.api.schemas import CaseCreate, CaseUpdate, CommentCreate
 from apps.api.store import cases_repo
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -44,6 +44,16 @@ async def get_case(case_id: str, tenant: CurrentTenant) -> dict[str, Any]:
     if case is None:
         raise NotFoundError(f"case {case_id} not found")
     return case
+
+
+@router.patch("/{case_id}", responses=_NOT_FOUND)
+async def update_case(case_id: str, body: CaseUpdate, tenant: CasesWriter) -> dict[str, Any]:
+    """Update a case's status / assignee / title / description."""
+    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    updated = cases_repo.update(tenant.tenant_id, case_id, patch)
+    if updated is None:
+        raise NotFoundError(f"case {case_id} not found")
+    return updated
 
 
 @router.post("/{case_id}/comments", status_code=201, responses=_NOT_FOUND)

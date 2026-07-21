@@ -55,6 +55,13 @@ class CaseCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
 
+class CaseUpdate(BaseModel):
+    status: CaseStatus | None = None
+    assignee: str | None = None
+    title: str | None = None
+    description: str | None = None
+
+
 class CommentCreate(BaseModel):
     body: str
 
