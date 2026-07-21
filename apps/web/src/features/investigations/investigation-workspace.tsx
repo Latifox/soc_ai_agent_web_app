@@ -23,32 +23,44 @@ import {
   SeverityBadge,
   StatusLabel,
 } from "@/components/soc/flagship-ui";
-import { incidentQueue, investigationEvents, mitreMappings } from "@/lib/demo-soc-data";
+import type { QueueItem, TimelineItem } from "@/components/soc/flagship-ui";
 import { cn } from "@/lib/utils";
 
 const tabs = ["Attack story", "Timeline", "Graph", "Evidence (24)", "Correlations (7)", "Notes (0)"];
 const filters = ["All", "Identity", "Endpoint", "Network", "Process"];
 
-export function InvestigationWorkspace() {
+interface InvestigationWorkspaceProps {
+  queue: QueueItem[];
+  timelines: Record<string, TimelineItem[]>;
+  mitre: string[];
+}
+
+export function InvestigationWorkspace({ queue, timelines, mitre }: InvestigationWorkspaceProps) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState(incidentQueue[0].id);
+  const [selectedId, setSelectedId] = useState(queue[0]?.id ?? "");
   const [activeTab, setActiveTab] = useState("Attack story");
   const [activeFilter, setActiveFilter] = useState("All");
   const [showBenign, setShowBenign] = useState(false);
   const [regeneratedAt, setRegeneratedAt] = useState("");
   const [approvalState, setApprovalState] = useState<"pending" | "approved" | "rejected">("pending");
   const [notes, setNotes] = useState("");
-  const selected = incidentQueue.find((incident) => incident.id === selectedId) ?? incidentQueue[0];
-  const eventSource = useMemo(
-    () => showBenign
-      ? [...investigationEvents, { time: "14:15:44", category: "Network" as const, title: "Expected DNS query", detail: "Known updater domain matched allowlist.", entity: "workstation-23", severity: "low" as const }]
-      : investigationEvents,
-    [showBenign],
-  );
+  const selected = queue.find((incident) => incident.id === selectedId) ?? queue[0];
+  const eventSource = useMemo(() => {
+    const base = timelines[selected?.id ?? ""] ?? [];
+    return showBenign ? base : base.filter((event) => event.severity !== "low" || base.length <= 2);
+  }, [showBenign, timelines, selected?.id]);
   const events = useMemo(
     () => activeFilter === "All" ? eventSource : eventSource.filter((event) => event.category === activeFilter),
     [activeFilter, eventSource],
   );
+
+  if (!selected) {
+    return (
+      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center text-sm text-muted-foreground">
+        No incidents to investigate yet.
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-background">
@@ -58,7 +70,7 @@ export function InvestigationWorkspace() {
             <span className="soc-eyebrow">Priority queue</span>
             <Activity className="size-4 text-muted-foreground" aria-hidden="true" />
           </div>
-          <PriorityQueue items={incidentQueue} selectedId={selectedId} onSelect={setSelectedId} />
+          <PriorityQueue items={queue} selectedId={selectedId} onSelect={setSelectedId} />
           <div className="border-t border-border p-3"><DetailLink onClick={() => router.push("/incidents")}>View all incidents</DetailLink></div>
         </aside>
 
@@ -135,14 +147,17 @@ export function InvestigationWorkspace() {
               {[{ icon: Laptop, value: "3", label: "Hosts" }, { icon: UserRound, value: "1", label: "User" }, { icon: Network, value: "2", label: "IPs" }].map(({ icon: Icon, value, label }) => <div key={label} className="border-r border-border px-2 py-3 last:border-r-0"><Icon className="mx-auto size-4 text-muted-foreground" /><p className="mt-1 text-sm font-semibold">{value}</p><p className="text-[10px] text-muted-foreground">{label}</p></div>)}
             </div>
             <div className="space-y-2 p-3 text-xs">
-              <div className="flex items-center justify-between gap-2"><span className="font-mono">WIN-7F3G2K9H8</span><StatusLabel tone="red">High</StatusLabel></div>
-              <div className="flex items-center justify-between gap-2"><span className="font-mono">jsmith@corp</span><StatusLabel tone="red">High</StatusLabel></div>
+              <div className="flex items-center justify-between gap-2"><span className="font-mono">{selected?.entity ?? "—"}</span><StatusLabel tone={selected && ["critical", "high"].includes(selected.severity) ? "red" : "amber"}>{selected ? selected.severity : "—"}</StatusLabel></div>
               <DetailLink onClick={() => router.push("/assets")}>View all entities</DetailLink>
             </div>
           </Panel>
           <Panel title="MITRE ATT&CK mapping" className="m-3 my-2 shadow-none">
             <div className="divide-y divide-border">
-              {mitreMappings.map(([id, label, severity]) => <div key={id} className="flex items-start gap-2 px-3 py-2.5"><span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-high" /><span className="font-mono text-[10px] text-primary">{id}</span><span className="text-[11px] leading-snug text-muted-foreground">{label}</span><span className="sr-only">{severity}</span></div>)}
+              {mitre.length === 0 ? (
+                <div className="px-3 py-2.5 text-[11px] text-muted-foreground">No MITRE-tagged rules yet.</div>
+              ) : (
+                mitre.map((id) => <div key={id} className="flex items-start gap-2 px-3 py-2.5"><span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-high" /><span className="font-mono text-[10px] text-primary">{id}</span><span className="text-[11px] leading-snug text-muted-foreground">Covered by an enabled detection rule</span></div>)
+              )}
             </div>
           </Panel>
           <Panel title="Evidence confidence" className="m-3 my-2 shadow-none"><div className="p-4"><ConfidenceMeter value={86} /></div></Panel>

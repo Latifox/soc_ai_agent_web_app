@@ -1,6 +1,6 @@
 import { OperationalWorkspace } from "@/features/workspaces/operational-workspace";
-import { workspaceConfigs } from "@/lib/workspace-data";
+import { liveAutomationConfig } from "@/lib/live-data";
 
-export function AutomationWorkspace() {
-  return <OperationalWorkspace config={workspaceConfigs.automation} />;
+export async function AutomationWorkspace() {
+  return <OperationalWorkspace config={await liveAutomationConfig()} />;
 }

@@ -1,6 +1,6 @@
 import { OperationalWorkspace } from "@/features/workspaces/operational-workspace";
-import { workspaceConfigs } from "@/lib/workspace-data";
+import { liveReportsConfig } from "@/lib/live-data";
 
-export function ReportsWorkspace() {
-  return <OperationalWorkspace config={workspaceConfigs.reports} />;
+export async function ReportsWorkspace() {
+  return <OperationalWorkspace config={await liveReportsConfig()} />;
 }

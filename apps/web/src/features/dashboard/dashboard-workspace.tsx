@@ -24,8 +24,14 @@ import {
   StatusLabel,
   WorkspaceTitle,
 } from "@/components/soc/flagship-ui";
-import { dashboardMetrics, incidentQueue } from "@/lib/demo-soc-data";
 import { cn } from "@/lib/utils";
+import type { WorkspaceMetric } from "@/lib/workspace-data";
+import type { QueueItem } from "@/components/soc/flagship-ui";
+
+interface DashboardWorkspaceProps {
+  metrics: WorkspaceMetric[];
+  queue: QueueItem[];
+}
 
 const attention = [
   { title: "Containment approval", detail: "Isolate WIN-7F3G2K9H8", age: "2m", tone: "red" as const },
@@ -43,14 +49,22 @@ const agentActivity = [
 
 const ranges = ["Last 24 hours", "Last 7 days", "Last 30 days"];
 
-export function DashboardWorkspace() {
+export function DashboardWorkspace({ metrics, queue }: DashboardWorkspaceProps) {
   const router = useRouter();
-  const [selectedId, setSelectedId] = useState(incidentQueue[0].id);
+  const [selectedId, setSelectedId] = useState(queue[0]?.id ?? "");
   const [rangeIndex, setRangeIndex] = useState(0);
   const [selectedAttention, setSelectedAttention] = useState(attention[0].title);
   const [notice, setNotice] = useState("");
-  const selected = incidentQueue.find((item) => item.id === selectedId) ?? incidentQueue[0];
+  const selected = queue.find((item) => item.id === selectedId) ?? queue[0];
   const range = ranges[rangeIndex];
+
+  if (!selected) {
+    return (
+      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center text-sm text-muted-foreground">
+        No incidents yet — connect an integration or enable a rule to begin.
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-background pb-6">
@@ -60,14 +74,14 @@ export function DashboardWorkspace() {
         description="Prioritized risk, active investigations, and decisions that need your attention."
         actions={<><Button variant="secondary" size="sm" onClick={() => setRangeIndex((value) => (value + 1) % ranges.length)}><Clock3 /> {range}</Button><Button variant="primary" size="sm" onClick={() => router.push("/investigations")}><Plus /> New investigation</Button></>}
       />
-      <MetricStrip metrics={dashboardMetrics} />
+      <MetricStrip metrics={metrics} />
       {notice ? (
         <div className="mx-4 mt-4 rounded-control border border-primary/25 bg-primary/10 px-3 py-2 text-sm text-primary lg:mx-5">{notice}</div>
       ) : null}
       <div className="grid gap-4 p-4 lg:p-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.75fr)]">
         <div className="grid min-w-0 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
-          <Panel title="Priority queue" eyebrow="Live incidents" action={<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">247</span>}>
-            <PriorityQueue items={incidentQueue} selectedId={selectedId} onSelect={setSelectedId} />
+          <Panel title="Priority queue" eyebrow="Live incidents" action={<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{queue.length}</span>}>
+            <PriorityQueue items={queue} selectedId={selectedId} onSelect={setSelectedId} />
           </Panel>
           <Panel title={selected.title} eyebrow={selected.id} action={<SeverityBadge severity={selected.severity} />}>
             <div className="soc-grid-bg p-4 sm:p-5">

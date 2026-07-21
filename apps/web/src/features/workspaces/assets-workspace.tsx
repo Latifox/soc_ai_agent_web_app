@@ -1,6 +1,6 @@
 import { OperationalWorkspace } from "@/features/workspaces/operational-workspace";
-import { workspaceConfigs } from "@/lib/workspace-data";
+import { liveAssetsConfig } from "@/lib/live-data";
 
-export function AssetsWorkspace() {
-  return <OperationalWorkspace config={workspaceConfigs.assets} />;
+export async function AssetsWorkspace() {
+  return <OperationalWorkspace config={await liveAssetsConfig()} />;
 }

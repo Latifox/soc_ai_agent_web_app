@@ -1,6 +1,6 @@
 import { OperationalWorkspace } from "@/features/workspaces/operational-workspace";
-import { workspaceConfigs } from "@/lib/workspace-data";
+import { liveRulesConfig } from "@/lib/live-data";
 
-export function RulesWorkspace() {
-  return <OperationalWorkspace config={workspaceConfigs.rules} />;
+export async function RulesWorkspace() {
+  return <OperationalWorkspace config={await liveRulesConfig()} />;
 }
