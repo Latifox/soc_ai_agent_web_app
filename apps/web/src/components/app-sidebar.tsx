@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronsUpDown, ShieldCheck } from "lucide-react";
@@ -7,6 +8,7 @@ import { ChevronsUpDown, ShieldCheck } from "lucide-react";
 import { navGroups } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/sidebar-context";
+import { TenantDrawer } from "@/features/workspaces/tenant-drawer";
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -15,6 +17,7 @@ function isActive(pathname: string, href: string) {
 export function AppSidebar() {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
+  const [drawer, setDrawer] = useState(false);
 
   // Below `lg` the sidebar is always an icon rail. At `lg`+ it follows the
   // persisted `collapsed` preference. `label` hides text accordingly.
@@ -119,6 +122,7 @@ export function AppSidebar() {
         <button
           type="button"
           aria-label="Switch account or organization"
+          onClick={() => setDrawer(true)}
           className={cn(
             "flex w-full items-center gap-2.5 rounded-control p-1.5 text-left outline-none transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--color-foreground)_5%,transparent)] focus-visible:ring-2 focus-visible:ring-ring",
             collapsed ? "justify-center" : "justify-center lg:justify-start",
@@ -152,6 +156,7 @@ export function AppSidebar() {
           />
         </button>
       </div>
+      {drawer ? <TenantDrawer onClose={() => setDrawer(false)} /> : null}
     </aside>
   );
 }

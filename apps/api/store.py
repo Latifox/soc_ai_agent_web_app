@@ -125,3 +125,36 @@ def _make_settings_store() -> Any:
 
 
 settings_store = _make_settings_store()
+
+
+class MemoryTenants:
+    """Volatile onboarding directory (dev/tests) — mirrors PgTenants."""
+
+    def __init__(self) -> None:
+        self._data: dict[str, dict[str, Any]] = {}
+        self._lock = RLock()
+
+    def list(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return list(self._data.values())
+
+    def get(self, tenant_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            return self._data.get(tenant_id)
+
+    def create(self, tenant_id: str, name: str, opensearch_url: str | None) -> dict[str, Any]:
+        with self._lock:
+            row = {"id": tenant_id, "name": name, "status": "active", "opensearch_url": opensearch_url}
+            self._data[tenant_id] = row
+            return row
+
+
+def _make_tenants_store() -> Any:
+    if get_settings().persistence == "postgres":
+        from apps.api.db import PgTenants  # noqa: PLC0415
+
+        return PgTenants()
+    return MemoryTenants()
+
+
+tenants_store = _make_tenants_store()

@@ -10,7 +10,9 @@ import { createClient } from "@/lib/supabase/server";
 
 const API_URL = process.env.AEGIS_API_URL ?? "http://localhost:8000";
 
-async function bearer(): Promise<string | null> {
+async function bearer(req: NextRequest): Promise<string | null> {
+  const cookieToken = req.cookies.get("aegis_token")?.value;
+  if (cookieToken) return cookieToken;
   try {
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       const supabase = await createClient();
@@ -26,7 +28,7 @@ async function bearer(): Promise<string | null> {
 }
 
 async function proxy(req: NextRequest, path: string[]) {
-  const token = await bearer();
+  const token = await bearer(req);
   if (!token) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }

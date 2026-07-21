@@ -20,6 +20,14 @@ export class ApiError extends Error {
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
+  // An onboarded/switched tenant's token (set by /api/tenant/switch) takes precedence.
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieToken = (await cookies()).get("aegis_token")?.value;
+    if (cookieToken) return { authorization: `Bearer ${cookieToken}` };
+  } catch {
+    // Not in a request scope with cookies — fall through.
+  }
   try {
     const supabase = await createClient();
     const {
@@ -217,6 +225,15 @@ export interface WhoAmI {
 }
 export const EMPTY_WHOAMI: WhoAmI = { tenant_id: "—", user_id: "—", role: "—", permissions: [] };
 export const getWhoami = () => apiTry<WhoAmI>("/whoami", EMPTY_WHOAMI);
+
+export interface TenantRecord {
+  id: string;
+  name: string;
+  status: string;
+  opensearch_url?: string | null;
+  created_at?: string;
+}
+export const getTenants = () => apiTry<TenantRecord[]>("/tenants", []);
 
 export interface TenantSettings {
   org_name: string;

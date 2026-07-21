@@ -26,6 +26,7 @@ from apps.api.routers import (
     search,
     settings,
     telemetry,
+    tenants,
 )
 
 router = APIRouter(tags=["v1"])
@@ -42,6 +43,7 @@ router.include_router(telemetry.router)
 router.include_router(metrics.router)
 router.include_router(reports.router)
 router.include_router(settings.router)
+router.include_router(tenants.router)
 router.include_router(assistant.router)
 router.include_router(agents.router)
 

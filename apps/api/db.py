@@ -140,6 +140,33 @@ class PgSettings:
             return self._merge(self._defaults, merged)
 
 
+class PgTenants:
+    """Cross-tenant onboarding directory (``aegis.tenants``)."""
+
+    def list(self) -> list[dict[str, Any]]:
+        with get_pool().connection() as conn, conn.cursor() as cur:
+            cur.execute("select id, name, status, opensearch_url, created_at from aegis.tenants order by created_at desc")
+            return [
+                {"id": str(r[0]), "name": r[1], "status": r[2], "opensearch_url": r[3], "created_at": r[4].isoformat() if r[4] else None}
+                for r in cur.fetchall()
+            ]
+
+    def get(self, tenant_id: str) -> dict[str, Any] | None:
+        with get_pool().connection() as conn, conn.cursor() as cur:
+            cur.execute("select id, name, status, opensearch_url from aegis.tenants where id = %s", (tenant_id,))
+            r = cur.fetchone()
+            return {"id": str(r[0]), "name": r[1], "status": r[2], "opensearch_url": r[3]} if r else None
+
+    def create(self, tenant_id: str, name: str, opensearch_url: str | None) -> dict[str, Any]:
+        with get_pool().connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                "insert into aegis.tenants (id, name, opensearch_url) values (%s, %s, %s) returning id, name, status, opensearch_url",
+                (tenant_id, name, opensearch_url),
+            )
+            r = cur.fetchone()
+            return {"id": str(r[0]), "name": r[1], "status": r[2], "opensearch_url": r[3]}
+
+
 def ping() -> bool:
     """True if the pool can round-trip a query (used at startup)."""
     try:
