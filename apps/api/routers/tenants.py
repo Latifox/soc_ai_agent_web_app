@@ -42,6 +42,9 @@ class OpenSearchSource(BaseModel):
 class TenantCreate(BaseModel):
     name: str
     opensearch: OpenSearchSource
+    # Optional: set the tenant id to match your log pipeline's LOGSTASH_TENANT_ID so the crew
+    # queries the right ``t-{tenant_id}-*`` indices. Defaults to a generated uuid.
+    tenant_id: str | None = None
 
 
 class SourceTestRequest(BaseModel):
@@ -91,7 +94,8 @@ async def create_tenant(body: TenantCreate, _: TenantAdmin, settings=Depends(get
     """Onboard a tenant: create it, verify + store its OpenSearch source, grant crew access."""
     cfg = {**body.opensearch.model_dump(), "agent_access": True}
     health = ping_connector("opensearch", body.opensearch.model_dump())
-    tenant_id = str(uuid.uuid4())
+    # Use the caller-supplied id (to match their log pipeline) or generate one.
+    tenant_id = (body.tenant_id or "").strip() or str(uuid.uuid4())
 
     tenant = tenants_store.create(tenant_id, body.name, body.opensearch.url)
     # Store the source as an integration under the NEW tenant so its crew can query it.

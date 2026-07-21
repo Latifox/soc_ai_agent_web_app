@@ -19,6 +19,7 @@ const STEPS = ["Workspace", "Source", "Provision"] as const;
 export function OnboardingWizard({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
+  const [tenantId, setTenantId] = useState("");
   const [os, setOs] = useState({ url: "", user: "admin", password: "" });
   const [testHealth, setTestHealth] = useState<Health | null>(null);
   const [testing, setTesting] = useState(false);
@@ -43,7 +44,7 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
     setCreating(true);
     setError("");
     try {
-      const r = (await backend("tenants", { method: "POST", body: JSON.stringify({ name, opensearch: os }) })) as typeof result;
+      const r = (await backend("tenants", { method: "POST", body: JSON.stringify({ name, tenant_id: tenantId.trim() || undefined, opensearch: os }) })) as typeof result;
       setResult(r);
       // Stash the token so the workspace drawer can switch into this tenant later.
       if (r?.token) try { localStorage.setItem(`aegis_token_${r.tenant.id}`, r.token); } catch {}
@@ -93,6 +94,9 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
               </div>
               <label className="block space-y-1 text-sm"><span className="soc-label">Workspace name</span>
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Corp SOC" className="h-10 w-full rounded-control border border-border bg-surface px-3 outline-none focus:border-primary" autoFocus /></label>
+              <label className="block space-y-1 text-sm"><span className="soc-label">Tenant ID (optional)</span>
+                <input value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="match your Logstash LOGSTASH_TENANT_ID (e.g. sekera-vps-01)" className="h-9 w-full rounded-control border border-border bg-surface px-3 font-mono text-xs outline-none focus:border-primary" />
+                <span className="text-[11px] text-muted-foreground">Set this to your log pipeline&apos;s tenant id so the crew queries <code>t-&lt;id&gt;-*</code>. Leave blank to auto-generate.</span></label>
             </div>
           ) : null}
 
