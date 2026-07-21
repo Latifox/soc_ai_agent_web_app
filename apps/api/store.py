@@ -60,3 +60,45 @@ assets_repo = MemoryRepo()
 approvals_repo = MemoryRepo()
 autonomy_repo = MemoryRepo()
 reports_repo = MemoryRepo()
+
+
+DEFAULT_SETTINGS: dict[str, Any] = {
+    "org_name": "Aegis Demo",
+    "timezone": "UTC",
+    "contact_email": "",
+    "preferences": {"incident_notifications": True, "daily_digest": False, "weekly_report": True},
+    "detection": {"default_severity": "medium", "schedule_frequency": "15m", "retention_days": 90, "auto_close_fp": True},
+}
+
+
+def _deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Return ``base`` overlaid with ``patch`` (nested dicts merged, not replaced)."""
+    out = {**base}
+    for key, value in patch.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        else:
+            out[key] = value
+    return out
+
+
+class SettingsStore:
+    """Single tenant-settings document per tenant, merged over :data:`DEFAULT_SETTINGS`."""
+
+    def __init__(self) -> None:
+        self._data: dict[str, dict[str, Any]] = {}
+        self._lock = RLock()
+
+    def get(self, tenant_id: str) -> dict[str, Any]:
+        with self._lock:
+            return _deep_merge(DEFAULT_SETTINGS, self._data.get(tenant_id, {}))
+
+    def update(self, tenant_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+        with self._lock:
+            current = self._data.get(tenant_id, {})
+            merged = _deep_merge(current, patch)
+            self._data[tenant_id] = merged
+            return _deep_merge(DEFAULT_SETTINGS, merged)
+
+
+settings_store = SettingsStore()

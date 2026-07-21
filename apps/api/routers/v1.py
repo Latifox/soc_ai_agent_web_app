@@ -24,6 +24,7 @@ from apps.api.routers import (
     reports,
     rules,
     search,
+    settings,
     telemetry,
 )
 
@@ -40,6 +41,7 @@ router.include_router(search.router)
 router.include_router(telemetry.router)
 router.include_router(metrics.router)
 router.include_router(reports.router)
+router.include_router(settings.router)
 router.include_router(assistant.router)
 router.include_router(agents.router)
 

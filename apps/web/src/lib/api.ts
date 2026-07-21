@@ -218,6 +218,22 @@ export interface WhoAmI {
 export const EMPTY_WHOAMI: WhoAmI = { tenant_id: "—", user_id: "—", role: "—", permissions: [] };
 export const getWhoami = () => apiTry<WhoAmI>("/whoami", EMPTY_WHOAMI);
 
+export interface TenantSettings {
+  org_name: string;
+  timezone: string;
+  contact_email: string;
+  preferences: { incident_notifications: boolean; daily_digest: boolean; weekly_report: boolean };
+  detection: { default_severity: string; schedule_frequency: string; retention_days: number; auto_close_fp: boolean };
+}
+export const EMPTY_SETTINGS: TenantSettings = {
+  org_name: "Aegis",
+  timezone: "UTC",
+  contact_email: "",
+  preferences: { incident_notifications: true, daily_digest: false, weekly_report: true },
+  detection: { default_severity: "medium", schedule_frequency: "15m", retention_days: 90, auto_close_fp: true },
+};
+export const getSettings = () => apiTry<TenantSettings>("/settings", EMPTY_SETTINGS);
+
 export const getReports = () => apiTry<ReportRecord[]>("/reports", []);
 export const getReport = (id: string) => apiFetch<ReportRecord>(`/reports/${id}`);
 

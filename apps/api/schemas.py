@@ -55,6 +55,39 @@ class CaseCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
 
+class PreferencesUpdate(BaseModel):
+    incident_notifications: bool | None = None
+    daily_digest: bool | None = None
+    weekly_report: bool | None = None
+
+
+class DetectionConfigUpdate(BaseModel):
+    default_severity: Severity | None = None
+    schedule_frequency: str | None = None
+    retention_days: int | None = Field(default=None, ge=1, le=3650)
+    auto_close_fp: bool | None = None
+
+
+class SettingsUpdate(BaseModel):
+    org_name: str | None = None
+    timezone: str | None = None
+    contact_email: str | None = None
+    preferences: PreferencesUpdate | None = None
+    detection: DetectionConfigUpdate | None = None
+
+    def to_patch(self) -> dict[str, object]:
+        """Drop unset fields at every level so a PUT only changes what was sent."""
+        def prune(d: dict[str, object]) -> dict[str, object]:
+            out: dict[str, object] = {}
+            for k, v in d.items():
+                if v is None:
+                    continue
+                out[k] = prune(v) if isinstance(v, dict) else v
+            return out
+
+        return prune(self.model_dump())
+
+
 class CaseUpdate(BaseModel):
     status: CaseStatus | None = None
     assignee: str | None = None
