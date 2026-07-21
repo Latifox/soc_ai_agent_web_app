@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from aegis_core import get_logger
 
@@ -105,5 +106,7 @@ async def vibe_rule(body: VibeRequest, tenant: CurrentTenant) -> dict[str, Any]:
     """NL -> validated detection rule YAML (Detection-Engineering agent)."""
     from aegis_agents import argus_service  # noqa: PLC0415 - heavy import
 
-    run = argus_service.vibe_rule(tenant.tenant_id, body.prompt)
+    # The Agno agent call is blocking; run it off the event loop so concurrent
+    # requests don't wedge the async worker.
+    run = await run_in_threadpool(argus_service.vibe_rule, tenant.tenant_id, body.prompt)
     return {"content": getattr(run, "content", str(run))}

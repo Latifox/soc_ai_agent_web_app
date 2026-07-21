@@ -11,19 +11,25 @@ from typing import Annotated, Any
 import yaml
 from fastapi import APIRouter, Depends
 
+from datetime import datetime, timezone
+
 from aegis_core import TenantContext
-from aegis_core.errors import NotFoundError
+from aegis_core.errors import NotFoundError, PermissionDeniedError
 
 from apps.api.deps import CurrentTenant
 from apps.api.errors import Problem
 from apps.api.rbac import require_permission
-from apps.api.schemas import BacktestRequest, RuleCreate, RuleUpdate
-from apps.api.store import rules_repo
+from apps.api.schemas import BacktestRequest, RuleApplyRequest, RuleCreate, RuleUpdate
+from apps.api.store import integrations_repo, rules_repo
 
 router = APIRouter(prefix="/rules", tags=["rules"])
 
 RulesWriter = Annotated[TenantContext, Depends(require_permission("rules:write"))]
 _NOT_FOUND = {404: {"model": Problem, "description": "Rule not found"}}
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 @router.get("")
@@ -65,6 +71,36 @@ async def delete_rule(rule_id: str, tenant: RulesWriter) -> None:
     """Delete a rule."""
     if not rules_repo.delete(tenant.tenant_id, rule_id):
         raise NotFoundError(f"rule {rule_id} not found")
+
+
+@router.post("/{rule_id}/apply", responses=_NOT_FOUND)
+async def apply_rule(rule_id: str, body: RuleApplyRequest, tenant: RulesWriter) -> dict[str, Any]:
+    """Deploy a rule to a connected integration: bind it, enable it, bump version.
+
+    The target must be an integration the tenant has configured; deploying to a
+    disconnected connector is rejected so a rule never claims to be live when its
+    source isn't.
+    """
+    rule = rules_repo.get(tenant.tenant_id, rule_id)
+    if rule is None:
+        raise NotFoundError(f"rule {rule_id} not found")
+    integration = next(
+        (i for i in integrations_repo.list(tenant.tenant_id) if i.get("provider") == body.integration),
+        None,
+    )
+    if integration is None:
+        raise NotFoundError(f"no '{body.integration}' integration configured for this tenant")
+    if integration.get("status") == "disconnected":
+        raise PermissionDeniedError(f"integration '{body.integration}' is not connected — test it first")
+    patch = {
+        "integration": body.integration,
+        "enabled": True,
+        "version": int(rule.get("version", 1)) + 1,
+        "applied_at": _now_iso(),
+    }
+    updated = rules_repo.update(tenant.tenant_id, rule_id, patch)
+    assert updated is not None  # noqa: S101 - fetched above under lock
+    return updated
 
 
 @router.post("/{rule_id}/backtest", responses=_NOT_FOUND)

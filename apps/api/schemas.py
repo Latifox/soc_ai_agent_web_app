@@ -19,6 +19,7 @@ class RuleCreate(BaseModel):
     yaml: str
     tags: list[str] = Field(default_factory=list)
     enabled: bool = True
+    integration: str | None = None
 
 
 class RuleUpdate(BaseModel):
@@ -27,10 +28,15 @@ class RuleUpdate(BaseModel):
     yaml: str | None = None
     tags: list[str] | None = None
     enabled: bool | None = None
+    integration: str | None = None
 
 
 class BacktestRequest(BaseModel):
     days: int = Field(default=30, ge=1, le=365)
+
+
+class RuleApplyRequest(BaseModel):
+    integration: str  # provider key of a connected integration (e.g. "fortinet", "opensearch")
 
 
 class IncidentUpdate(BaseModel):

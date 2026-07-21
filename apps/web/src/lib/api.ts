@@ -68,6 +68,8 @@ export interface RuleRecord {
   tags: string[];
   author?: string;
   yaml: string;
+  integration?: string | null;
+  applied_at?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -191,6 +193,7 @@ export const EMPTY_TELEMETRY: TelemetryOverview = {
 
 export const getTelemetry = () => apiTry<TelemetryOverview>("/telemetry/overview", EMPTY_TELEMETRY);
 export const getRules = () => apiTry<RuleRecord[]>("/rules", []);
+export const getRule = (id: string) => apiFetch<RuleRecord>(`/rules/${id}`);
 export const getAgentsStatus = () =>
   apiTry<AgentsStatusResponse>("/agents/status", { operational: false, pending_approvals: 0, agents: [] });
 export const getIncidents = () => apiTry<IncidentRecord[]>("/incidents", []);
