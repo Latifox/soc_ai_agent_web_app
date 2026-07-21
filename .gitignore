@@ -39,3 +39,7 @@ data/
 # Agent skills — materialized via `npx skills add`, pinned by skills-lock.json
 .agents/
 .claude/
+
+# Playwright MCP + local screenshots
+.playwright-mcp/
+/*.png
