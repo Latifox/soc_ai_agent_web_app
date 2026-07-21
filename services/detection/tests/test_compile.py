@@ -44,8 +44,25 @@ def test_compile_threshold() -> None:
     }
     compiled = compile_rule(rule)
     assert "uniqExact(dst_port) AS metric" in compiled.sql
-    assert "GROUP BY tenant_id, toString(src_ip)" in compiled.sql
+    assert "toString(src_ip) AS g0" in compiled.sql
+    assert "GROUP BY tenant_id, g0" in compiled.sql
     assert "HAVING metric > 50" in compiled.sql
+
+
+def test_compile_threshold_word_operator_and_bare_depth() -> None:
+    # The Vibe agent emits `operator: gt` and `depth: 600` (bare seconds); both must compile.
+    rule = {
+        "title": "brute force",
+        "severity": "medium",
+        "type": "advanced_threshold",
+        "query": "event.action:failed_login",
+        "depth": 600,
+        "threshold": {"group_by": ["source.ip"], "aggregate": "count(event.action)", "operator": "gt", "value": 5},
+    }
+    compiled = compile_rule(rule)
+    assert "count(event_action) AS metric" in compiled.sql
+    assert "HAVING metric > 5" in compiled.sql
+    assert "INTERVAL 600 SECOND" in compiled.sql
 
 
 def test_compile_query() -> None:

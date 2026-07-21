@@ -22,7 +22,7 @@ from apps.api.deps import CurrentTenant
 from apps.api.errors import Problem
 from apps.api.rbac import require_permission
 from apps.api.schemas import BacktestRequest, RuleApplyRequest, RuleCreate, RuleUpdate
-from apps.api.store import integrations_repo, rules_repo
+from apps.api.store import incidents_repo, integrations_repo, rules_repo
 
 router = APIRouter(prefix="/rules", tags=["rules"])
 
@@ -128,6 +128,74 @@ async def apply_rule(rule_id: str, body: RuleApplyRequest, tenant: RulesWriter) 
     updated = rules_repo.update(tenant.tenant_id, rule_id, patch)
     assert updated is not None  # noqa: S101 - fetched above under lock
     return updated
+
+
+@router.post("/{rule_id}/run", responses=_NOT_FOUND)
+async def run_rule_now(rule_id: str, tenant: RulesWriter) -> dict[str, Any]:
+    """Evaluate a rule against live events and raise correlated incidents on matches.
+
+    This is the detection→incident bridge: compile the rule, run it over the tenant's
+    ClickHouse events, correlate the matches by (rule, primary entity), and create/refresh
+    an incident in the metadata store for each cluster. Re-running is idempotent — an
+    existing incident for the same correlation key is updated, not duplicated.
+    """
+    rule = rules_repo.get(tenant.tenant_id, rule_id)
+    if rule is None:
+        raise NotFoundError(f"rule {rule_id} not found")
+    from aegis_detection.compile import compile_rule  # noqa: PLC0415 - keep API import light
+    from aegis_detection.correlate import correlate, correlation_key
+    from aegis_detection.run import run_rule
+
+    data = yaml.safe_load(rule["yaml"]) or {}
+    data.setdefault("rule_id", rule_id)
+    try:
+        compiled = compile_rule(data)
+        rows = run_rule(compiled, tenant_id=tenant.tenant_id)
+    except Exception as exc:  # noqa: BLE001 - a bad rule/query is a 400, not a 500
+        raise PermissionDeniedError(f"rule failed to run: {str(exc)[:200]}") from exc
+
+    # Turn each matching row into a detection (entities = the grouped values / raw match).
+    severity = str(rule.get("severity", "medium"))
+    detections: list[dict[str, Any]] = []
+    for row in rows:
+        entities = [str(v) for k, v in row.items() if k not in ("tenant_id", "metric") and v not in (None, "")]
+        if not entities:
+            entities = [str(row.get("host_name") or row.get("src_ip") or "match")]
+        detections.append({"rule_id": rule_id, "severity": severity, "entities": entities, "metric": row.get("metric")})
+
+    if not detections:
+        return {"matches": 0, "incidents": [], "note": "no events matched the rule"}
+
+    existing = {i.get("correlation_key"): i for i in incidents_repo.list(tenant.tenant_id) if i.get("correlation_key")}
+    created: list[str] = []
+    updated_ids: list[str] = []
+    for candidate in correlate(detections):
+        key = candidate["correlation_key"]
+        metric = next((d.get("metric") for d in detections if correlation_key(d) == key), None)
+        prior = existing.get(key)
+        if prior is not None:
+            incidents_repo.update(tenant.tenant_id, prior["id"], {"detection_count": candidate["detection_count"]})
+            updated_ids.append(prior["id"])
+            continue
+        incident = incidents_repo.create(
+            tenant.tenant_id,
+            {
+                "title": rule.get("title", "Detection"),
+                "severity": candidate["severity"],
+                "status": "open",
+                "assignee": None,
+                "tags": rule.get("tags", []),
+                "description": f"Rule '{rule.get('title')}' matched {metric or candidate['detection_count']} event(s) for {', '.join(candidate['entities'][:4])}.",
+                "detected_at": _now_iso(),
+                "rule_title": rule.get("title"),
+                "rule_id": rule_id,
+                "entities": candidate["entities"],
+                "correlation_key": key,
+                "source": rule.get("integration"),
+            },
+        )
+        created.append(incident["id"])
+    return {"matches": len(rows), "incidents_created": created, "incidents_updated": updated_ids}
 
 
 @router.post("/{rule_id}/backtest", responses=_NOT_FOUND)

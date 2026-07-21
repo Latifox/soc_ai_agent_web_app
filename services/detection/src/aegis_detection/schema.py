@@ -8,12 +8,15 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Severity = Literal["low", "medium", "high", "critical"]
 RuleType = Literal[
     "query", "advanced_threshold", "source_monitor", "threat_match", "code", "spark"
 ]
+
+
+_OPERATOR_WORDS = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "eq": "==", "==": "==", ">": ">", ">=": ">=", "<": "<", "<=": "<="}
 
 
 class Threshold(BaseModel):
@@ -23,6 +26,12 @@ class Threshold(BaseModel):
     aggregate: str = "count()"
     operator: Literal[">", ">=", "<", "<=", "=="] = ">"
     value: float = 0
+
+    @field_validator("operator", mode="before")
+    @classmethod
+    def _normalize_operator(cls, v: Any) -> str:
+        # Accept word forms (gt/gte/lt/lte/eq) as well as symbols.
+        return _OPERATOR_WORDS.get(str(v).strip().lower(), str(v))
 
 
 class Rule(BaseModel):
@@ -42,6 +51,12 @@ class Rule(BaseModel):
     frequency: str = "15m"
     depth: str = "15m"
     indices: list[str] = Field(default_factory=list)
+
+    @field_validator("frequency", "depth", mode="before")
+    @classmethod
+    def _coerce_duration(cls, v: Any) -> str:
+        # YAML may load a bare number (e.g. `depth: 600`) as int; treat it as seconds.
+        return str(v) if v is not None else "15m"
     query: str | None = None
     threshold: Threshold | None = None
     exclusions: dict[str, Any] = Field(default_factory=dict)

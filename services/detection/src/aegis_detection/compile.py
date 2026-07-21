@@ -42,11 +42,13 @@ class CompiledRule:
 
 def parse_duration(text: str) -> str:
     """Turn ``15m`` / ``1h`` / ``30 DAY`` into a ClickHouse ``INTERVAL`` clause."""
-    text = text.strip()
+    text = str(text).strip()
     if m := re.fullmatch(r"(\d+)\s*([smhd])", text):
         return f"INTERVAL {int(m.group(1))} {_DUR_UNITS[m.group(2)]}"
     if m := re.fullmatch(r"(\d+)\s+(SECOND|MINUTE|HOUR|DAY)", text, re.IGNORECASE):
         return f"INTERVAL {int(m.group(1))} {m.group(2).upper()}"
+    if m := re.fullmatch(r"(\d+)", text):  # bare number → seconds (e.g. depth: 600)
+        return f"INTERVAL {int(m.group(1))} SECOND"
     raise ValueError(f"unrecognized duration: {text!r}")
 
 
@@ -106,16 +108,21 @@ def _translate_agg(aggregate: str) -> str:
     aggregate = aggregate.strip()
     if m := re.fullmatch(r"cardinality\(([\w.]+)\)", aggregate):
         return f"uniqExact({_col(m.group(1))})"
-    if re.fullmatch(r"count\(\)", aggregate):
+    if re.fullmatch(r"count\(\s*\)", aggregate):
         return "count()"
+    if m := re.fullmatch(r"count\(([\w.]+)\)", aggregate):  # count(event.action) → count(col)
+        return f"count({_col(m.group(1))})"
+    if m := re.fullmatch(r"count_distinct\(([\w.]+)\)", aggregate):
+        return f"uniqExact({_col(m.group(1))})"
     return aggregate
 
 
 def _threshold_sql(rule: Rule, where: str, time_filter: str) -> str:
     th = rule.threshold or Threshold()
     group_cols = [_col(f) for f in th.group_by]
-    select_group = (", " + ", ".join(group_cols)) if group_cols else ""
-    group_by = ", ".join(["tenant_id", *group_cols])
+    # Alias each group column to g0/g1/… so callers get a stable entity column name.
+    select_group = "".join(f", {col} AS g{i}" for i, col in enumerate(group_cols))
+    group_by = ", ".join(["tenant_id", *(f"g{i}" for i in range(len(group_cols)))]) if group_cols else "tenant_id"
     agg = _translate_agg(th.aggregate)
     return (
         f"SELECT tenant_id{select_group}, {agg} AS metric "

@@ -52,9 +52,10 @@ export function IncidentDetail({ incident: initial }: { incident: IncidentRecord
       setEvError("");
       if (entities.length === 0) { setEvLoading(false); return; }
       const inList = entities.map((e) => `'${e.replace(/'/g, "")}'`).join(", ");
-      // tenant_id is included so the server's tenant-scoping wrapper (SELECT * ... WHERE
-      // tenant_id = …) has the column to filter on.
-      const sql = `SELECT tenant_id, ts, source, host_name, user_name, src_ip, dst_ip, event_action FROM events WHERE host_name IN (${inList}) OR user_name IN (${inList}) ORDER BY ts DESC LIMIT 20`;
+      // Match the entities against host / user / IP columns (entities may be a hostname,
+      // a username, or an IP). tenant_id is selected so the server's tenant-scoping
+      // wrapper (SELECT * … WHERE tenant_id = …) has a column to filter on.
+      const sql = `SELECT tenant_id, ts, source, host_name, user_name, src_ip, dst_ip, event_action FROM events WHERE host_name IN (${inList}) OR user_name IN (${inList}) OR src_ip IN (${inList}) OR dst_ip IN (${inList}) ORDER BY ts DESC LIMIT 20`;
       try {
         const data = (await backend("search", { method: "POST", body: JSON.stringify({ engine: "clickhouse", query: sql, size: 20 }) })) as { rows: Row[] };
         if (!cancelled) setEvidence(data.rows ?? []);
