@@ -163,6 +163,45 @@ const ApprovalPrompt = defineComponent({
   ),
 });
 
+const Stack = defineComponent({
+  name: "Stack",
+  description: "Vertical container that stacks child components with spacing.",
+  props: z.object({ children: z.array(z.any()) }),
+  component: ({ props: p, renderNode }) => (
+    <div className="space-y-3">{(p.children ?? []).map((c, i) => <div key={i}>{renderNode(c)}</div>)}</div>
+  ),
+});
+
+const EntityList = defineComponent({
+  name: "EntityList",
+  description: "A labeled list of entities/indicators (hosts, users, IPs) as chips.",
+  props: z.object({ label: z.string(), items: z.array(z.string()) }),
+  component: ({ props: p }) => (
+    <div>
+      <div className="mb-1 text-xs font-medium uppercase text-muted-foreground">{p.label}</div>
+      <div className="flex flex-wrap gap-1.5">
+        {(p.items ?? []).map((it, i) => (
+          <code key={i} className="rounded-md border bg-muted/40 px-2 py-0.5 text-xs">{it}</code>
+        ))}
+      </div>
+    </div>
+  ),
+});
+
+const EvidenceTable = defineComponent({
+  name: "EvidenceTable",
+  description: "Raw log evidence rows (timestamp, source, action, host, user, ip).",
+  props: z.object({ rows: z.array(z.object({ ts: z.string(), source: z.string(), action: z.string(), entity: z.string() })) }),
+  component: ({ props: p }) => (
+    <div className="overflow-x-auto rounded-xl border">
+      <table className="w-full text-left text-xs">
+        <thead className="bg-muted/50 uppercase text-muted-foreground"><tr><th className="px-3 py-2">Time</th><th className="px-3 py-2">Source</th><th className="px-3 py-2">Action</th><th className="px-3 py-2">Entity</th></tr></thead>
+        <tbody>{(p.rows ?? []).map((r, i) => <tr key={i} className="border-t"><td className="px-3 py-1.5 font-mono">{r.ts}</td><td className="px-3 py-1.5">{r.source}</td><td className="px-3 py-1.5">{r.action}</td><td className="px-3 py-1.5 font-mono">{r.entity}</td></tr>)}</tbody>
+      </table>
+    </div>
+  ),
+});
+
 export const aegisLibrary = createLibrary({
-  components: [AlertCard, MitreMappingTable, InvestigationTimeline, RuleDiff, ApprovalPrompt],
+  components: [AlertCard, MitreMappingTable, InvestigationTimeline, RuleDiff, ApprovalPrompt, Stack, EntityList, EvidenceTable],
 });

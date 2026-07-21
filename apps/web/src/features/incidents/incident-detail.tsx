@@ -58,7 +58,25 @@ export function IncidentDetail({ incident: initial }: { incident: IncidentRecord
       const query = clauses.join(" OR ");
       try {
         const data = (await backend("search", { method: "POST", body: JSON.stringify({ engine: "opensearch", query, size: 20 }) })) as { rows: Row[] };
-        if (!cancelled) setEvidence(data.rows ?? []);
+        // Flatten the ECS-nested docs into readable columns (no [object Object]).
+        const flat = (data.rows ?? []).map((r) => {
+          const ev = (r.event ?? {}) as Record<string, unknown>;
+          const src = (r.source ?? {}) as Record<string, unknown>;
+          const dst = (r.destination ?? {}) as Record<string, unknown>;
+          const host = (r.host ?? {}) as Record<string, unknown>;
+          const user = (r.user ?? {}) as Record<string, unknown>;
+          return {
+            "@timestamp": r["@timestamp"] ?? "",
+            source: r.source_tool ?? "",
+            action: ev.action ?? "",
+            "host.name": host.name ?? "",
+            "user.name": user.name ?? "",
+            "src.ip": src.ip ?? "",
+            "dst.ip": dst.ip ?? "",
+            message: r.message ?? "",
+          } as Row;
+        });
+        if (!cancelled) setEvidence(flat);
       } catch {
         if (!cancelled) setEvError("No live evidence — connect OpenSearch and ingest events.");
       } finally {
@@ -118,7 +136,7 @@ export function IncidentDetail({ incident: initial }: { incident: IncidentRecord
         </div>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" onClick={escalate} disabled={busy !== ""}>{busy === "case" ? <Loader2 className="animate-spin" /> : <FileText />} Escalate to case</Button>
-          <Button size="sm" variant="primary" onClick={() => router.push(`/assistant?context=${encodeURIComponent(incident.title)}`)}><Sparkles /> Investigate with Argus</Button>
+          <Button size="sm" variant="primary" onClick={() => router.push(`/assistant?incident=${incident.id}`)}><Sparkles /> Investigate with Argus</Button>
         </div>
       </div>
 
@@ -195,7 +213,7 @@ export function IncidentDetail({ incident: initial }: { incident: IncidentRecord
             <div className="space-y-2 p-4">
               <Button size="sm" variant="secondary" className="w-full justify-between" onClick={() => router.push(`/investigations?incident=${incident.id}`)}>Open investigation <ArrowRight /></Button>
               <Button size="sm" variant="secondary" className="w-full justify-between" onClick={escalate} disabled={busy !== ""}>Escalate to case <ArrowRight /></Button>
-              <Button size="sm" variant="secondary" className="w-full justify-between" onClick={() => router.push(`/assistant?context=${encodeURIComponent(incident.title)}`)}>Ask Argus <ArrowRight /></Button>
+              <Button size="sm" variant="secondary" className="w-full justify-between" onClick={() => router.push(`/assistant?incident=${incident.id}`)}>Ask Argus <ArrowRight /></Button>
             </div>
           </Panel>
         </div>

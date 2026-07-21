@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from aegis_core import get_logger
+from aegis_core.errors import NotFoundError
 
 from apps.api.deps import CurrentTenant
 
@@ -34,6 +35,7 @@ class ChatRequest(BaseModel):
     message: str | None = None
     messages: list[ChatMessage] | None = None
     session_id: str | None = None
+    context: dict[str, Any] | None = None  # incident/case the analyst launched from
 
     def user_text(self) -> str:
         """The latest user message (supports both plain {message} and OpenAI {messages})."""
@@ -44,9 +46,37 @@ class ChatRequest(BaseModel):
                 return msg.content if isinstance(msg.content, str) else str(msg.content)
         return ""
 
+    def grounded_text(self) -> str:
+        """The user message, prefixed with the launched incident/case context when present."""
+        text = self.user_text()
+        ctx = self.context or {}
+        if not ctx:
+            return text
+        summary = ctx.get("summary") or ""
+        kind = ctx.get("kind", "item")
+        title = ctx.get("title", "")
+        entities = ", ".join(ctx.get("entities", [])[:8])
+        header = f"[Context — you are investigating {kind} '{title}'. {summary}"
+        if entities:
+            header += f" Entities: {entities}."
+        header += "]"
+        return f"{header}\n\n{text}" if text else header
+
 
 class VibeRequest(BaseModel):
     prompt: str
+
+
+class ConversationMessage(BaseModel):
+    role: str
+    content: Any = ""
+
+
+class ConversationUpsert(BaseModel):
+    id: str | None = None
+    title: str = "New investigation"
+    context: dict[str, Any] | None = None  # the incident/case the thread is about
+    messages: list[ConversationMessage] = []
 
 
 def _extract_rule_yaml(text: str) -> str:
@@ -86,7 +116,7 @@ async def assistant_stream(body: ChatRequest, tenant: CurrentTenant) -> Streamin
     """Stream the crew's reply as OpenAI-compatible Server-Sent Events."""
     from aegis_agents import argus_service, iter_text  # noqa: PLC0415 - heavy import
 
-    message = body.user_text()
+    message = body.grounded_text()
 
     def sse() -> Any:
         first = True
@@ -117,6 +147,53 @@ async def assistant_stream(body: ChatRequest, tenant: CurrentTenant) -> Streamin
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(sse(), media_type="text/event-stream")
+
+
+@router.get("/conversations")
+async def list_conversations(tenant: CurrentTenant) -> list[dict[str, Any]]:
+    """List the tenant's saved Argus threads (newest first, without full message bodies)."""
+    from apps.api.store import conversations_repo  # noqa: PLC0415
+
+    convos = conversations_repo.list(tenant.tenant_id)
+    convos.sort(key=lambda c: c.get("updated_at") or c.get("created_at") or "", reverse=True)
+    return [
+        {
+            "id": c["id"],
+            "title": c.get("title", "Investigation"),
+            "context": c.get("context"),
+            "message_count": len(c.get("messages", [])),
+            "updated_at": c.get("updated_at") or c.get("created_at"),
+        }
+        for c in convos
+    ]
+
+
+@router.get("/conversations/{conversation_id}")
+async def get_conversation(conversation_id: str, tenant: CurrentTenant) -> dict[str, Any]:
+    """Fetch one saved thread with its full message history."""
+    from apps.api.store import conversations_repo  # noqa: PLC0415
+
+    convo = conversations_repo.get(tenant.tenant_id, conversation_id)
+    if convo is None:
+        raise NotFoundError(f"conversation {conversation_id} not found")
+    return convo
+
+
+@router.post("/conversations")
+async def upsert_conversation(body: ConversationUpsert, tenant: CurrentTenant) -> dict[str, Any]:
+    """Create or update a saved Argus thread (persisted in Supabase).
+
+    The client sends a stable ``id`` (its thread key, e.g. ``incident-<uuid>``); it's stored
+    as ``thread_key`` and matched on for idempotent upserts (the DB row keeps its own uuid).
+    """
+    from apps.api.store import conversations_repo  # noqa: PLC0415
+
+    data = {"title": body.title, "context": body.context, "messages": [m.model_dump() for m in body.messages], "thread_key": body.id}
+    if body.id:
+        existing = next((c for c in conversations_repo.list(tenant.tenant_id) if c.get("thread_key") == body.id), None)
+        if existing is not None:
+            return conversations_repo.update(tenant.tenant_id, existing["id"], data) or {}
+    return conversations_repo.create(tenant.tenant_id, data)
 
 
 @router.post("/vibe-rule")

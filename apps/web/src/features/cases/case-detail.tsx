@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Loader2, MessageSquare, Send, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, MessageSquare, Send, Sparkles, User } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Panel, StatusLabel } from "@/components/soc/flagship-ui";
@@ -81,6 +81,7 @@ export function CaseDetail({ case: initial }: { case: CaseRecord }) {
           <p className="mt-1 font-mono text-[11px] text-muted-foreground">Case ID: {c.id.slice(0, 8)}{c.incident_id ? ` · from incident ${c.incident_id.slice(0, 8)}` : ""}</p>
         </div>
         {c.incident_id ? <Button size="sm" variant="secondary" onClick={() => router.push(`/incidents/${c.incident_id}`)}>View incident <ArrowRight /></Button> : null}
+        <Button size="sm" variant="primary" onClick={() => router.push(`/assistant?case=${c.id}`)}><Sparkles /> Investigate with Argus</Button>
       </div>
 
       {notice ? <div className="mx-4 mt-4 rounded-control border border-primary/25 bg-primary/10 px-3 py-2 text-sm text-primary lg:mx-5">{notice}</div> : null}

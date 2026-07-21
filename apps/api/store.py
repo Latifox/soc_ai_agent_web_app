@@ -54,7 +54,7 @@ class MemoryRepo:
 
 from aegis_core import get_settings  # noqa: E402
 
-_KINDS = ("rule", "incident", "case", "integration", "asset", "approval", "autonomy_policy", "report")
+_KINDS = ("rule", "incident", "case", "integration", "asset", "approval", "autonomy_policy", "report", "conversation")
 
 
 def _make_repos() -> dict[str, Any]:
@@ -75,6 +75,7 @@ assets_repo = _repos["asset"]
 approvals_repo = _repos["approval"]
 autonomy_repo = _repos["autonomy_policy"]
 reports_repo = _repos["report"]
+conversations_repo = _repos["conversation"]
 
 
 DEFAULT_SETTINGS: dict[str, Any] = {
