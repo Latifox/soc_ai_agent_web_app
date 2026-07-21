@@ -309,7 +309,11 @@ _(loop appends: `<task-id> — <commit hash> — <date>`)_
 - BE-07/H1 — `8471536` — 2026-07-21 (/search: ClickHouse SQL + OpenSearch, tenant-scoped)
 - BE-12/13 — `96659da`/`58db75b` — 2026-07-21 (detection emit to ClickHouse on alert;
   correlate detections → incident candidates) — pipeline compile→run→emit→correlate complete
-- **Next (needs `uv sync`/`pnpm install` to run):** AI-05 AgentOS approval wiring (httpx
-  continue_run), federation adapters (Splunk/Elastic/Sentinel), FE-02 Supabase Auth,
-  persist detections→incidents to Supabase, wire MultiMCPTools into the crew.
+- AI-05/BE-07/BE-13 — `7666cd8` — 2026-07-21 (AgentOS approval resume via
+  /runs/{id}/continue; Elastic/Splunk/Sentinel federation + /search/federated;
+  incidents persisted to Supabase under RLS; scheduler run_pipeline end-to-end)
+- FE-02 — `48ddadd` — 2026-07-21 (Supabase Auth: ssr clients, middleware, login/magic
+  link, callback/signout, stream proxy forwards verified session token)
+- **Verify pass pending:** `uv sync` + `pnpm install` + run test suites (blocked earlier
+  by session limit); then wire MultiMCPTools into the crew (native tools already live).
 - INFRA-01 — 7893838 — 2026-07-20 (scaffold + spec)
