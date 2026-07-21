@@ -84,6 +84,8 @@ export interface IncidentRecord {
   tags: string[];
   detected_at?: string;
   rule_title?: string;
+  rule_id?: string;
+  source?: string | null;
   entities?: string[];
   created_at?: string;
 }
@@ -197,6 +199,7 @@ export const getRule = (id: string) => apiFetch<RuleRecord>(`/rules/${id}`);
 export const getAgentsStatus = () =>
   apiTry<AgentsStatusResponse>("/agents/status", { operational: false, pending_approvals: 0, agents: [] });
 export const getIncidents = () => apiTry<IncidentRecord[]>("/incidents", []);
+export const getIncident = (id: string) => apiFetch<IncidentRecord>(`/incidents/${id}`);
 export const getCases = () => apiTry<CaseRecord[]>("/cases", []);
 export const getIntegrations = () => apiTry<IntegrationRecord[]>("/integrations", []);
 export const getAssets = () => apiTry<AssetRecord[]>("/assets", []);
