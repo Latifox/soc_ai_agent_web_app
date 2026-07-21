@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_jwt_secret: str = "super-secret-jwt-token-with-at-least-32-characters"
     pg_url: str = "postgresql+psycopg://postgres:postgres@localhost:54322/postgres"
+    # Metadata store: "memory" (dev/tests, volatile) or "postgres" (Supabase, durable).
+    persistence: Literal["memory", "postgres"] = "memory"
+
+    @property
+    def pg_dsn(self) -> str:
+        """``pg_url`` as a raw libpq DSN (SQLAlchemy ``+driver`` suffix stripped)."""
+        return self.pg_url.replace("postgresql+psycopg://", "postgresql://").replace(
+            "postgresql+psycopg2://", "postgresql://"
+        )
 
     # ── ClickHouse (events datalake) — local chdb by default ────────────────
     clickhouse_backend: Literal["chdb", "server"] = "chdb"

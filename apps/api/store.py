@@ -52,14 +52,29 @@ class MemoryRepo:
             return self._data.get(tenant_id, {}).pop(record_id, None) is not None
 
 
-rules_repo = MemoryRepo()
-incidents_repo = MemoryRepo()
-cases_repo = MemoryRepo()
-integrations_repo = MemoryRepo()
-assets_repo = MemoryRepo()
-approvals_repo = MemoryRepo()
-autonomy_repo = MemoryRepo()
-reports_repo = MemoryRepo()
+from aegis_core import get_settings  # noqa: E402
+
+_KINDS = ("rule", "incident", "case", "integration", "asset", "approval", "autonomy_policy", "report")
+
+
+def _make_repos() -> dict[str, Any]:
+    """Pick the metadata backend: durable Postgres (Supabase) or volatile in-memory."""
+    if get_settings().persistence == "postgres":
+        from apps.api.db import PgRepo  # noqa: PLC0415 - optional dependency
+
+        return {k: PgRepo(k) for k in _KINDS}
+    return {k: MemoryRepo() for k in _KINDS}
+
+
+_repos = _make_repos()
+rules_repo = _repos["rule"]
+incidents_repo = _repos["incident"]
+cases_repo = _repos["case"]
+integrations_repo = _repos["integration"]
+assets_repo = _repos["asset"]
+approvals_repo = _repos["approval"]
+autonomy_repo = _repos["autonomy_policy"]
+reports_repo = _repos["report"]
 
 
 DEFAULT_SETTINGS: dict[str, Any] = {
@@ -101,4 +116,12 @@ class SettingsStore:
             return _deep_merge(DEFAULT_SETTINGS, merged)
 
 
-settings_store = SettingsStore()
+def _make_settings_store() -> Any:
+    if get_settings().persistence == "postgres":
+        from apps.api.db import PgSettings  # noqa: PLC0415
+
+        return PgSettings(DEFAULT_SETTINGS, _deep_merge)
+    return SettingsStore()
+
+
+settings_store = _make_settings_store()
