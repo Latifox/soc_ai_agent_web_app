@@ -23,10 +23,26 @@ export interface ArgusContext {
   lang: string; // OpenUI Lang for the generative-UI context card
 }
 
-// Render assistant replies as prose. Overriding AssistantMessage bypasses OpenUI's
-// GenUI-Lang parser (which rejects plain text with "no renderable root component").
-function AssistantMessageView({ message }: { message: { content?: string | null }; isStreaming: boolean }) {
-  return <div className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{message.content ?? ""}</div>;
+function stripFences(s: string): string {
+  return s.replace(/```(?:openui|ya?ml|lang)?\s*/gi, "").replace(/```/g, "").trim();
+}
+// A reply is generative UI when it's an OpenUI Lang program (has a `root = …` line).
+function looksLikeLang(s: string): boolean {
+  return /(^|\n)\s*root\s*=/.test(stripFences(s));
+}
+
+// Hybrid renderer: OpenUI Lang replies render as generative UI (cards/tables/timelines
+// via the Aegis component library); everything else renders as prose.
+function AssistantMessageView({ message, isStreaming }: { message: { content?: string | null }; isStreaming: boolean }) {
+  const content = message.content ?? "";
+  if (looksLikeLang(content)) {
+    return (
+      <div className="space-y-2">
+        <Renderer response={stripFences(content)} library={aegisLibrary} isStreaming={isStreaming} />
+      </div>
+    );
+  }
+  return <div className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">{content}</div>;
 }
 
 const STARTERS = [
@@ -49,7 +65,7 @@ async function persistTurn(threadId: string, context: ArgusContext | undefined, 
   }
 }
 
-export function AssistantChat({ context }: { context?: ArgusContext }) {
+export function AssistantChat({ context, onSaved }: { context?: ArgusContext; onSaved?: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const threadId = useMemo(() => (context ? `${context.kind}-${context.id}` : (globalThis.crypto?.randomUUID?.() ?? String(Date.now()))), [context]);
 
@@ -99,7 +115,7 @@ export function AssistantChat({ context }: { context?: ArgusContext }) {
             }
             buf = buf.slice(buf.lastIndexOf("\n") + 1);
           }
-          if (text.trim()) void persistTurn(threadId, context, apiMessages, text);
+          if (text.trim()) { await persistTurn(threadId, context, apiMessages, text); onSaved?.(); }
         })();
         return new Response(toUi, { status: resp.status, headers: resp.headers });
       }
@@ -109,7 +125,7 @@ export function AssistantChat({ context }: { context?: ArgusContext }) {
   };
 
   return (
-    <div ref={rootRef} className={`soc-panel flex ${context ? "h-[calc(100dvh-14rem)]" : "h-[calc(100dvh-12.5rem)]"} min-h-[380px] flex-col overflow-hidden`}>
+    <div ref={rootRef} className="soc-panel flex h-full min-h-[380px] flex-col overflow-hidden">
       {context ? (
         <div className="border-b border-border bg-surface-subtle/40 p-3">
           <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-primary"><Sparkles className="size-3.5" /> Investigating {context.kind}: {context.title}</div>

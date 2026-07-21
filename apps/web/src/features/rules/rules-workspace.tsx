@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plug, Plus, Search, X } from "lucide-react";
+import { Loader2, Plug, Plus, Search, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { MetricStrip, SeverityBadge, StatusLabel, WorkspaceTitle, type Severity } from "@/components/soc/flagship-ui";
@@ -29,11 +29,13 @@ function timeAgo(iso?: string): string {
   return h < 48 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 }
 
-export function RulesWorkspace({ rules, metrics }: { rules: RuleRecord[]; metrics: WorkspaceMetric[] }) {
+export function RulesWorkspace({ rules: initial, metrics }: { rules: RuleRecord[]; metrics: WorkspaceMetric[] }) {
   const router = useRouter();
+  const [rules, setRules] = useState(initial);
   const [query, setQuery] = useState("");
   const [picker, setPicker] = useState(false);
   const [creating, setCreating] = useState<RuleType | "">("");
+  const [deleting, setDeleting] = useState("");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -42,6 +44,20 @@ export function RulesWorkspace({ rules, metrics }: { rules: RuleRecord[]; metric
       [r.title, r.type, r.author ?? "", ...(r.tags ?? [])].some((v) => v.toLowerCase().includes(q)),
     );
   }, [query, rules]);
+
+  async function removeRule(rule: RuleRecord) {
+    if (!window.confirm(`Delete rule "${rule.title}"?${rule.monitor_id ? " Its OpenSearch monitor is removed too." : ""}`)) return;
+    setDeleting(rule.id);
+    try {
+      if (rule.monitor_id) await backend(`rules/monitors/${rule.monitor_id}`, { method: "DELETE" }).catch(() => {});
+      await backend(`rules/${rule.id}`, { method: "DELETE" });
+      setRules((rs) => rs.filter((r) => r.id !== rule.id));
+    } catch {
+      /* leave row */
+    } finally {
+      setDeleting("");
+    }
+  }
 
   async function createRule(spec: (typeof RULE_TYPES)[number]) {
     setCreating(spec.type);
@@ -100,6 +116,7 @@ export function RulesWorkspace({ rules, metrics }: { rules: RuleRecord[]; metric
                   <th>Status</th>
                   <th>Author</th>
                   <th>Updated</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -125,10 +142,17 @@ export function RulesWorkspace({ rules, metrics }: { rules: RuleRecord[]; metric
                     <td><StatusLabel tone={rule.enabled ? "green" : "neutral"}>{rule.enabled ? "Enabled" : "Disabled"}</StatusLabel></td>
                     <td className="text-xs text-muted-foreground">{rule.author ?? "—"}</td>
                     <td className="font-mono text-xs text-muted-foreground">{timeAgo(rule.updated_at ?? rule.created_at)}</td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end">
+                        <Button size="icon" variant="ghost" aria-label={`Delete ${rule.title}`} onClick={() => removeRule(rule)} disabled={deleting === rule.id}>
+                          {deleting === rule.id ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">No rules match your search.</td></tr>
+                  <tr><td colSpan={8} className="py-10 text-center text-sm text-muted-foreground">No rules match your search.</td></tr>
                 ) : null}
               </tbody>
             </table>
