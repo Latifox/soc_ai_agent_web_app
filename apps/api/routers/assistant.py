@@ -8,6 +8,7 @@ proxy forwards here with the caller's Supabase JWT.
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any
 
@@ -46,6 +47,23 @@ class ChatRequest(BaseModel):
 
 class VibeRequest(BaseModel):
     prompt: str
+
+
+def _extract_rule_yaml(text: str) -> str:
+    """Pull the clean rule YAML out of the agent's answer.
+
+    The Detection-Engineering agent may narrate and echo ``rule_validate`` output; the
+    editor only wants the rule. Prefer a fenced ```yaml block, then any fenced block that
+    looks like a rule, then the substring from the first top-level ``title:`` onward.
+    """
+    fenced = re.search(r"```ya?ml\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
+    if fenced:
+        return fenced.group(1).strip()
+    any_fence = re.search(r"```\s*(.*?)```", text, re.DOTALL)
+    if any_fence and "title:" in any_fence.group(1):
+        return any_fence.group(1).strip()
+    match = re.search(r"^title:.*", text, re.DOTALL | re.MULTILINE)
+    return match.group(0).strip() if match else text.strip()
 
 
 def _chunk(content: str, *, role: str | None = None) -> str:
@@ -109,4 +127,5 @@ async def vibe_rule(body: VibeRequest, tenant: CurrentTenant) -> dict[str, Any]:
     # The Agno agent call is blocking; run it off the event loop so concurrent
     # requests don't wedge the async worker.
     run = await run_in_threadpool(argus_service.vibe_rule, tenant.tenant_id, body.prompt)
-    return {"content": getattr(run, "content", str(run))}
+    raw = getattr(run, "content", str(run))
+    return {"content": _extract_rule_yaml(raw), "raw": raw}

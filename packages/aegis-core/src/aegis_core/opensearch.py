@@ -30,7 +30,7 @@ class OpenSearchClient:
         import httpx  # noqa: PLC0415 - optional dependency, lazy
 
         index = self._index(tenant_id)
-        with httpx.Client(timeout=15.0) as client:
+        with httpx.Client(timeout=15.0, verify=False) as client:  # noqa: S501 - self-signed dev certs
             resp = client.post(
                 f"{self._url}/{index}/_search",
                 json={"query": query, "size": size},
@@ -39,6 +39,31 @@ class OpenSearchClient:
             resp.raise_for_status()
             hits = resp.json().get("hits", {}).get("hits", [])
             return [hit.get("_source", {}) for hit in hits]
+
+    def index_doc(
+        self, doc: dict[str, Any], *, tenant_id: str, suffix: str, doc_id: str | None = None
+    ) -> dict[str, Any]:
+        """Index ``doc`` into the tenant index ``t-{tenant}-{suffix}`` (refresh=true).
+
+        Returns the OpenSearch response (``_index``/``_id``/``result``). Used to deploy
+        detection rules into the tenant's own cluster.
+        """
+        import httpx  # noqa: PLC0415 - optional dependency, lazy
+
+        if not tenant_id or not tenant_id.strip():
+            raise TenantIsolationError("tenant_id is required to index a document")
+        index = f"t-{tenant_id}-{suffix}"
+        path = f"{index}/_doc/{doc_id}" if doc_id else f"{index}/_doc"
+        with httpx.Client(timeout=15.0, verify=False) as client:  # noqa: S501 - self-signed dev certs
+            resp = client.request(
+                "PUT" if doc_id else "POST",
+                f"{self._url}/{path}",
+                params={"refresh": "true"},
+                json=doc,
+                auth=self._auth,
+            )
+            resp.raise_for_status()
+            return resp.json()
 
 
 def get_opensearch(settings: Settings) -> OpenSearchClient:

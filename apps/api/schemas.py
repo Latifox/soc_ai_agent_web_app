@@ -38,6 +38,9 @@ class BacktestRequest(BaseModel):
 class RuleApplyRequest(BaseModel):
     integration: str  # provider key of a connected integration (e.g. "fortinet", "opensearch")
 
+    def provider_is_opensearch(self) -> bool:
+        return self.integration.lower() == "opensearch"
+
 
 class IncidentUpdate(BaseModel):
     status: IncidentStatus | None = None

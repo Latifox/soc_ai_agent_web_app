@@ -13,8 +13,10 @@ from fastapi import APIRouter, Depends
 
 from datetime import datetime, timezone
 
-from aegis_core import TenantContext
+from aegis_core import TenantContext, get_logger, get_settings, opensearch_for_tenant
 from aegis_core.errors import NotFoundError, PermissionDeniedError
+
+log = get_logger(__name__)
 
 from apps.api.deps import CurrentTenant
 from apps.api.errors import Problem
@@ -92,11 +94,36 @@ async def apply_rule(rule_id: str, body: RuleApplyRequest, tenant: RulesWriter) 
         raise NotFoundError(f"no '{body.integration}' integration configured for this tenant")
     if integration.get("status") == "disconnected":
         raise PermissionDeniedError(f"integration '{body.integration}' is not connected — test it first")
+
+    # Really deploy: push the rule as a document into the tenant's OpenSearch cluster
+    # (index ``t-{tenant}-detection-rules``). Other providers are bound as metadata only.
+    deployment: dict[str, Any] = {"target": body.integration, "pushed": False}
+    if body.provider_is_opensearch():
+        rule_doc = {
+            "rule_id": rule_id,
+            "tenant_id": tenant.tenant_id,
+            "title": rule.get("title"),
+            "severity": rule.get("severity"),
+            "type": rule.get("type"),
+            "tags": rule.get("tags", []),
+            "yaml": rule.get("yaml"),
+            "enabled": True,
+            "applied_at": _now_iso(),
+        }
+        client = opensearch_for_tenant(tenant.tenant_id, get_settings())
+        try:
+            resp = client.index_doc(rule_doc, tenant_id=tenant.tenant_id, suffix="detection-rules", doc_id=rule_id)
+            deployment = {"target": "opensearch", "pushed": True, "index": resp.get("_index"), "result": resp.get("result")}
+        except Exception as exc:  # noqa: BLE001 - surface a real failure to the caller
+            log.error("rule.deploy.opensearch.failed", tenant_id=tenant.tenant_id, error=str(exc)[:200])
+            raise PermissionDeniedError(f"deploy to OpenSearch failed: {str(exc)[:160]}") from exc
+
     patch = {
         "integration": body.integration,
         "enabled": True,
         "version": int(rule.get("version", 1)) + 1,
         "applied_at": _now_iso(),
+        "deployment": deployment,
     }
     updated = rules_repo.update(tenant.tenant_id, rule_id, patch)
     assert updated is not None  # noqa: S101 - fetched above under lock
