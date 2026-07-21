@@ -12,6 +12,7 @@ from fastapi import APIRouter
 from apps.api.deps import CurrentTenant
 from apps.api.errors import Problem
 from apps.api.routers import (
+    agents,
     approvals,
     assets,
     assistant,
@@ -36,6 +37,7 @@ router.include_router(autonomy.router)
 router.include_router(search.router)
 router.include_router(metrics.router)
 router.include_router(assistant.router)
+router.include_router(agents.router)
 
 
 @router.get("/")

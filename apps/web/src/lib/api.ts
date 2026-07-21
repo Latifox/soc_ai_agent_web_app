@@ -153,7 +153,24 @@ export const EMPTY_METRICS: Metrics = {
   assets: { total: 0, high_risk: 0 },
 };
 
+export interface AgentStatus {
+  key: string;
+  name: string;
+  role: string;
+  tier: string;
+  state: "running" | "paused" | "idle";
+  task: string;
+}
+
+export interface AgentsStatusResponse {
+  operational: boolean;
+  pending_approvals: number;
+  agents: AgentStatus[];
+}
+
 export const getRules = () => apiTry<RuleRecord[]>("/rules", []);
+export const getAgentsStatus = () =>
+  apiTry<AgentsStatusResponse>("/agents/status", { operational: false, pending_approvals: 0, agents: [] });
 export const getIncidents = () => apiTry<IncidentRecord[]>("/incidents", []);
 export const getCases = () => apiTry<CaseRecord[]>("/cases", []);
 export const getIntegrations = () => apiTry<IntegrationRecord[]>("/integrations", []);

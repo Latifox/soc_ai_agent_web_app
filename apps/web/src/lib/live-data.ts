@@ -6,6 +6,7 @@
 
 import type { QueueItem, Severity } from "@/components/soc/flagship-ui";
 import {
+  getAgentsStatus,
   getApprovals,
   getAssets,
   getAutonomyPolicies,
@@ -14,6 +15,7 @@ import {
   getIntegrations,
   getMetrics,
   getRules,
+  type AgentStatus,
   type IncidentRecord,
   type Metrics,
 } from "@/lib/api";
@@ -47,17 +49,99 @@ function titleCase(value: string): string {
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 
+export interface AttentionItem {
+  title: string;
+  detail: string;
+  age: string;
+  tone: "red" | "amber" | "neutral";
+}
+
+export interface IncidentDetail {
+  description: string;
+  entities: string[];
+  tags: string[];
+  assignee: string;
+  status: string;
+  mitre: string[];
+  recommended: string;
+}
+
 export interface LiveDashboard {
   metrics: WorkspaceMetric[];
   queue: QueueItem[];
   mitre: string[];
   pendingApprovals: number;
+  attention: AttentionItem[];
+  agents: AgentStatus[];
+  details: Record<string, IncidentDetail>;
 }
 
+const RECOMMENDATIONS: Record<string, string> = {
+  soar_isolate_host: "Isolate the affected host",
+  soar_disable_user: "Suspend the implicated account",
+  soar_block_ip: "Block the source IP",
+};
+
 export async function liveDashboard(): Promise<LiveDashboard> {
-  const [metrics, incidents] = await Promise.all([getMetrics(), getIncidents()]);
+  const [metrics, incidents, approvals, integrations, agents] = await Promise.all([
+    getMetrics(),
+    getIncidents(),
+    getApprovals(),
+    getIntegrations(),
+    getAgentsStatus(),
+  ]);
   const critical = metrics.incidents.by_severity["critical"] ?? 0;
   const high = metrics.incidents.by_severity["high"] ?? 0;
+  const pending = approvals.filter((a) => a.status === "pending");
+
+  // Needs-human-attention feed, built from live records.
+  const attention: AttentionItem[] = [
+    ...pending.map((a) => ({
+      title: `Approval: ${titleCase(a.tool_name.replace(/^soar_/, ""))}`,
+      detail: Object.values(a.args).map(String).slice(0, 2).join(" · "),
+      age: "now",
+      tone: "red" as const,
+    })),
+    ...incidents
+      .filter((i) => !i.assignee && i.status === "open")
+      .map((i) => ({
+        title: "Unassigned incident",
+        detail: i.title,
+        age: timeAgo(i.detected_at ?? i.created_at),
+        tone: "amber" as const,
+      })),
+    ...integrations
+      .filter((i) => i.status === "error")
+      .map((i) => ({
+        title: "Connector issue",
+        detail: `${i.name} is in error`,
+        age: "—",
+        tone: "neutral" as const,
+      })),
+  ];
+
+  // Per-incident detail for the assessment panel (keyed like the queue ids).
+  const details: Record<string, IncidentDetail> = {};
+  for (const incident of incidents) {
+    const key = incident.id.slice(0, 8).toUpperCase();
+    const entityHit = pending.find((a) =>
+      Object.values(a.args).some((v) => incident.entities?.includes(String(v))),
+    );
+    details[key] = {
+      description: incident.description ?? "No description recorded for this incident.",
+      entities: incident.entities ?? [],
+      tags: incident.tags ?? [],
+      assignee: incident.assignee ?? "Unassigned",
+      status: titleCase(incident.status),
+      mitre: (incident.tags ?? []).filter((t) => /^T1\d{3}/i.test(t)),
+      recommended: entityHit
+        ? `${RECOMMENDATIONS[entityHit.tool_name] ?? entityHit.tool_name} (approval pending)`
+        : incident.status === "resolved"
+          ? "Resolved — no action required"
+          : "Continue investigation",
+    };
+  }
+
   return {
     metrics: [
       { label: "Open incidents", value: String(metrics.incidents.open), detail: `${metrics.incidents.total} total`, tone: metrics.incidents.open ? "red" : "green" },
@@ -68,6 +152,9 @@ export async function liveDashboard(): Promise<LiveDashboard> {
     queue: incidentQueueItems(incidents),
     mitre: metrics.rules.mitre_techniques,
     pendingApprovals: metrics.approvals.pending,
+    attention,
+    agents: agents.agents,
+    details,
   };
 }
 

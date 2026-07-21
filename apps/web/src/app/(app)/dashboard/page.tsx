@@ -6,6 +6,15 @@ import { liveDashboard } from "@/lib/live-data";
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
-  const { metrics, queue } = await liveDashboard();
-  return <DashboardWorkspace metrics={metrics} queue={queue} />;
+  const { metrics, queue, attention, agents, details, pendingApprovals } = await liveDashboard();
+  return (
+    <DashboardWorkspace
+      metrics={metrics}
+      queue={queue}
+      attention={attention}
+      agents={agents}
+      details={details}
+      pendingApprovals={pendingApprovals}
+    />
+  );
 }
