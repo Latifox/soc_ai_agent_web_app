@@ -195,6 +195,23 @@ export const EMPTY_TELEMETRY: TelemetryOverview = {
   top_categories: [],
 };
 
+export interface ReportSection {
+  heading: string;
+  body?: string;
+  items?: string[];
+}
+export interface ReportRecord {
+  id: string;
+  kind: string;
+  title: string;
+  window_days: number;
+  generated_at: string;
+  metrics: Record<string, number>;
+  sections: ReportSection[];
+}
+export const getReports = () => apiTry<ReportRecord[]>("/reports", []);
+export const getReport = (id: string) => apiFetch<ReportRecord>(`/reports/${id}`);
+
 export const getTelemetry = () => apiTry<TelemetryOverview>("/telemetry/overview", EMPTY_TELEMETRY);
 export const getRules = () => apiTry<RuleRecord[]>("/rules", []);
 export const getRule = (id: string) => apiFetch<RuleRecord>(`/rules/${id}`);

@@ -21,6 +21,7 @@ from apps.api.routers import (
     incidents,
     integrations,
     metrics,
+    reports,
     rules,
     search,
     telemetry,
@@ -38,6 +39,7 @@ router.include_router(autonomy.router)
 router.include_router(search.router)
 router.include_router(telemetry.router)
 router.include_router(metrics.router)
+router.include_router(reports.router)
 router.include_router(assistant.router)
 router.include_router(agents.router)
 
