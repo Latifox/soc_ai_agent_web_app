@@ -17,6 +17,16 @@ export interface AssetView {
   risk: number;
   attributes: Record<string, unknown>;
   incidents: { id: string; title: string; severity: string }[];
+  discovered?: boolean;
+}
+
+function formatAttrValue(v: unknown): string {
+  if (Array.isArray(v)) return v.join(", ");
+  if (v && typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+function formatAttrKey(k: string): string {
+  return k.replace(/_/g, " ");
 }
 
 const KIND_ICON: Record<string, LucideIcon> = { host: Server, user: User, cloud: Cloud, identity: Fingerprint };
@@ -38,7 +48,7 @@ async function backend(path: string, init?: RequestInit) {
   return resp.status === 204 ? null : resp.json();
 }
 
-export function AssetsWorkspace({ assets: initial, metrics }: { assets: AssetView[]; metrics: WorkspaceMetric[] }) {
+export function AssetsWorkspace({ assets: initial, metrics, discoveryAvailable, discoveryReason }: { assets: AssetView[]; metrics: WorkspaceMetric[]; discoveryAvailable?: boolean; discoveryReason?: string }) {
   const router = useRouter();
   const [assets, setAssets] = useState(initial);
   const [query, setQuery] = useState("");
@@ -72,8 +82,14 @@ export function AssetsWorkspace({ assets: initial, metrics }: { assets: AssetVie
 
   return (
     <div className="min-h-[calc(100vh-3.5rem)] bg-background pb-6">
-      <WorkspaceTitle eyebrow="Inventory" title="Assets" description="Hosts, users, cloud and identity entities — with live risk from correlated incidents." actions={<Button size="sm" variant="primary" onClick={() => setDrawer(true)}><Plus /> Add asset</Button>} />
+      <WorkspaceTitle eyebrow="Inventory" title="Assets" description="Hosts and identities discovered from your OpenSearch logs — with live risk from correlated incidents." actions={<Button size="sm" variant="primary" onClick={() => setDrawer(true)}><Plus /> Add asset</Button>} />
       <MetricStrip metrics={metrics} />
+      {discoveryAvailable === false ? (
+        <div className="mx-4 mt-4 rounded-control border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400 lg:mx-5">
+          Asset discovery is offline — {discoveryReason ?? "OpenSearch not connected"}. Connect a source under{" "}
+          <button type="button" onClick={() => router.push("/integrations")} className="font-medium underline">Integrations</button> to populate device inventory from live logs.
+        </div>
+      ) : null}
 
       <div className="grid gap-4 p-4 lg:p-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Panel title="Inventory" eyebrow={`${filtered.length} assets`}>
@@ -98,7 +114,7 @@ export function AssetsWorkspace({ assets: initial, metrics }: { assets: AssetVie
                       <td>
                         <div className="flex items-center gap-3">
                           <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-primary/10 text-primary"><Icon className="size-4" /></span>
-                          <div><p className="text-sm font-medium">{a.name}</p><p className="mt-0.5 text-[10px] uppercase text-muted-foreground">{a.kind}</p></div>
+                          <div><p className="text-sm font-medium">{a.name}</p><p className="mt-0.5 text-[10px] uppercase text-muted-foreground">{a.kind}{a.discovered ? " · live" : ""}</p></div>
                         </div>
                       </td>
                       <td><StatusLabel tone={critTone(a.criticality)}>{titleCase(a.criticality)}</StatusLabel></td>
@@ -127,7 +143,7 @@ export function AssetsWorkspace({ assets: initial, metrics }: { assets: AssetVie
                   <div className="h-2.5 w-full overflow-hidden rounded-full bg-surface"><div className={cn("h-full rounded-full", riskColor(selected.risk))} style={{ width: `${Math.min(100, selected.risk)}%` }} /></div>
                 </div>
                 {Object.keys(selected.attributes ?? {}).length ? (
-                  <div><p className="soc-label mb-1.5">Attributes</p><div className="space-y-1">{Object.entries(selected.attributes).map(([k, v]) => <div key={k} className="flex justify-between gap-2 text-xs"><span className="text-muted-foreground">{k}</span><span className="truncate font-mono">{typeof v === "object" ? JSON.stringify(v) : String(v)}</span></div>)}</div></div>
+                  <div><p className="soc-label mb-1.5">{selected.discovered ? "Device information" : "Attributes"}</p><div className="space-y-1">{Object.entries(selected.attributes).map(([k, v]) => <div key={k} className="flex justify-between gap-2 text-xs"><span className="capitalize text-muted-foreground">{formatAttrKey(k)}</span><span className="truncate text-right font-mono">{formatAttrValue(v)}</span></div>)}</div></div>
                 ) : null}
                 <div>
                   <p className="soc-label mb-1.5">Related incidents</p>

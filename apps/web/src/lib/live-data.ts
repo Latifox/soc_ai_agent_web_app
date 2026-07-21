@@ -16,6 +16,7 @@ import {
   getMetrics,
   getRules,
   getTelemetry,
+  getWhoami,
   type AgentStatus,
   type IncidentRecord,
   type Metrics,
@@ -508,9 +509,10 @@ export async function liveConfigurationsConfig(): Promise<WorkspaceConfig> {
 }
 
 export async function liveSettingsConfig(): Promise<WorkspaceConfig> {
-  const [metrics, policies] = await Promise.all([getMetrics(), getAutonomyPolicies()]);
+  const [metrics, policies, who] = await Promise.all([getMetrics(), getAutonomyPolicies(), getWhoami()]);
+  const tenantName = who.tenant_name || who.tenant_id;
   const records: WorkspaceRecord[] = [
-    { id: "TENANT", primary: "Tenant — Demo Org", secondary: "plan: dev · region: local", severity: "info", source: "Supabase", updated: "live", status: "Active", owner: "Admin", description: "Tenant configuration and retention." },
+    { id: "TENANT", primary: `Tenant — ${tenantName}`, secondary: `id: ${who.tenant_id}`, severity: "info", source: "Supabase", updated: "live", status: "Active", owner: who.role || "Admin", description: "Tenant configuration and retention." },
     { id: "AUTH", primary: "Authentication — Supabase Auth", secondary: "password + magic link · MFA available", severity: "info", source: "Supabase", updated: "live", status: "Enabled", owner: "Admin", description: "SSO/SAML and SCIM configurable per tenant." },
     { id: "AGENTS", primary: "Argus agent crew", secondary: `${policies.length} action classes governed`, severity: "low", source: "AgentOS", updated: "live", status: "Running", owner: "Argus", description: "Autonomous SOC crew with HITL approvals." },
     { id: "DATA", primary: "Data plane", secondary: "OpenSearch · Supabase Postgres · logs", severity: "info", source: "Aegis core", updated: "live", status: "Local-first", owner: "Platform", description: "OpenSearch for logs/detection; Supabase Postgres for metadata." },

@@ -16,12 +16,30 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useSidebar } from "@/components/sidebar-context";
 import { allNavItems } from "@/lib/nav";
+import type { WhoAmI } from "@/lib/api";
 
-export function AppHeader() {
+function displayName(who: WhoAmI): string {
+  if (who.email && who.email.includes("@")) return who.email.split("@")[0].replace(/[._-]/g, " ");
+  if (who.user_id && who.user_id !== "—") return who.user_id;
+  return "Signed in";
+}
+
+export function AppHeader({
+  who,
+  operational,
+  pendingApprovals,
+}: {
+  who: WhoAmI;
+  operational: boolean;
+  pendingApprovals: number;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { toggle } = useSidebar();
   const pageLabel = pathname.split("/").filter(Boolean).at(-1) ?? "dashboard";
+  const notifications = pendingApprovals > 0
+    ? [{ label: `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} awaiting`, href: "/automation" }]
+    : [];
   const [query, setQuery] = React.useState("");
   const [panel, setPanel] = React.useState<"help" | "notifications" | null>(null);
   const matches = React.useMemo(() => {
@@ -84,10 +102,10 @@ export function AppHeader() {
       <div className="ml-auto flex items-center gap-1">
         <div className="mr-2 hidden items-center gap-2 text-xs lg:flex">
           <span className="relative flex size-2">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-low opacity-40" />
-            <span className="relative inline-flex size-2 rounded-full bg-low" />
+            {operational ? <span className="absolute inline-flex size-full animate-ping rounded-full bg-low opacity-40" /> : null}
+            <span className={`relative inline-flex size-2 rounded-full ${operational ? "bg-low" : "bg-medium"}`} />
           </span>
-          <span className="text-muted-foreground">Systems operational</span>
+          <span className="text-muted-foreground">{operational ? "Argus crew operational" : "Crew offline"}</span>
         </div>
         <div className="relative hidden sm:block">
         <Button variant="ghost" size="icon" aria-label="Open help" className="hidden sm:inline-flex" onClick={() => setPanel((value) => value === "help" ? null : "help")}>
@@ -106,16 +124,16 @@ export function AppHeader() {
         <div className="relative">
         <Button variant="ghost" size="icon" aria-label="Open notifications" className="relative" onClick={() => setPanel((value) => value === "notifications" ? null : "notifications")}>
           <Bell aria-hidden="true" />
-          <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary ring-2 ring-background" />
+          {notifications.length ? <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary ring-2 ring-background" /> : null}
         </Button>
           {panel === "notifications" ? (
             <div className="absolute right-0 top-11 z-30 w-80 rounded-card border border-border bg-popover shadow-xl">
-              {["Containment approval required", "Okta connector delayed", "Weekly SOC report ready"].map((item) => (
-                <button key={item} type="button" onClick={() => router.push(item.includes("report") ? "/reports" : "/dashboard")} className="block w-full border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-muted">
-                  <span className="block text-sm font-medium">{item}</span>
+              {notifications.length ? notifications.map((item) => (
+                <button key={item.label} type="button" onClick={() => router.push(item.href)} className="block w-full border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-muted">
+                  <span className="block text-sm font-medium">{item.label}</span>
                   <span className="block text-xs text-muted-foreground">Open related workspace</span>
                 </button>
-              ))}
+              )) : <p className="px-3 py-4 text-center text-sm text-muted-foreground">No new notifications</p>}
             </div>
           ) : null}
         </div>
@@ -128,8 +146,8 @@ export function AppHeader() {
             <ShieldCheck className="size-4" aria-hidden="true" />
           </span>
           <span className="hidden leading-tight xl:block">
-            <span className="block text-xs font-semibold">Priya N.</span>
-            <span className="block text-[10px] text-muted-foreground">Tier 2 Analyst</span>
+            <span className="block text-xs font-semibold capitalize">{displayName(who)}</span>
+            <span className="block text-[10px] capitalize text-muted-foreground">{who.tenant_name ? `${who.tenant_name} · ${who.role}` : who.role}</span>
           </span>
         </Link>
       </div>

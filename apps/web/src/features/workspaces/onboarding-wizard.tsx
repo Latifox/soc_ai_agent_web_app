@@ -16,7 +16,7 @@ async function backend(path: string, init?: RequestInit) {
 
 const STEPS = ["Workspace", "Source", "Provision"] as const;
 
-export function OnboardingWizard({ onClose }: { onClose: () => void }) {
+export function OnboardingWizard({ onClose, firstRun = false }: { onClose: () => void; firstRun?: boolean }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [tenantId, setTenantId] = useState("");
@@ -44,13 +44,19 @@ export function OnboardingWizard({ onClose }: { onClose: () => void }) {
     setCreating(true);
     setError("");
     try {
-      const r = (await backend("tenants", { method: "POST", body: JSON.stringify({ name, tenant_id: tenantId.trim() || undefined, opensearch: os }) })) as typeof result;
+      // First-run users (fresh Supabase signup, no tenant yet) bootstrap; existing admins add.
+      const endpoint = firstRun ? "tenants/bootstrap" : "tenants";
+      const r = (await backend(endpoint, { method: "POST", body: JSON.stringify({ name, tenant_id: tenantId.trim() || undefined, opensearch: os }) })) as typeof result;
       setResult(r);
       // Stash the token so the workspace drawer can switch into this tenant later.
       if (r?.token) try { localStorage.setItem(`aegis_token_${r.tenant.id}`, r.token); } catch {}
+      // First-run: immediately activate the new workspace so the console has a tenant context.
+      if (firstRun && r?.token) {
+        await fetch("/api/tenant/switch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: r.token }) });
+      }
       setStep(2);
     } catch {
-      setError("Onboarding failed — needs admin (autonomy:write).");
+      setError(firstRun ? "Onboarding failed — check the OpenSearch details and try again." : "Onboarding failed — needs admin (autonomy:write).");
     } finally {
       setCreating(false);
     }

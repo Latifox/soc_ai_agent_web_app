@@ -13,7 +13,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends
 
 from aegis_core import (
-    DATA_PROVIDERS,
+    REGISTRY_PROVIDERS,
     TenantContext,
     connector_registry,
     ping_connector,
@@ -35,7 +35,7 @@ _NOT_FOUND = {404: {"model": Problem, "description": "Integration not found"}}
 def _sync_registry(tenant_id: str, integration: dict[str, Any]) -> None:
     """Mirror a data connector's config/access grant into the crew connector registry."""
     provider = integration.get("provider")
-    if provider not in DATA_PROVIDERS:
+    if provider not in REGISTRY_PROVIDERS:
         return
     config = integration.get("config") or {}
     agent_access = bool(config.get("agent_access", True))
@@ -94,5 +94,5 @@ async def delete_integration(integration_id: str, tenant: IntegrationsAdmin) -> 
     existing = integrations_repo.get(tenant.tenant_id, integration_id)
     if not integrations_repo.delete(tenant.tenant_id, integration_id):
         raise NotFoundError(f"integration {integration_id} not found")
-    if existing and existing.get("provider") in DATA_PROVIDERS:
+    if existing and existing.get("provider") in REGISTRY_PROVIDERS:
         connector_registry.remove(tenant.tenant_id, str(existing["provider"]))

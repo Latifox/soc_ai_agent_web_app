@@ -1,31 +1,16 @@
-.PHONY: up down logs migrate seed api web agents lint test fmt
+.PHONY: api web agents lint test fmt
 
-up:            ## start dev stack
-	docker compose -f infra/docker-compose.yml up -d
+# Aegis runs three long-lived processes. No Docker: OpenSearch is a remote/managed cluster
+# (set OPENSEARCH_URL), app metadata + auth are Supabase (cloud). Deploy each process as its
+# own Railway service — see DEPLOY.md.
 
-down:
-	docker compose -f infra/docker-compose.yml down
-
-logs:
-	docker compose -f infra/docker-compose.yml logs -f
-
-migrate:       ## run ClickHouse migrations (Postgres schema is applied by Supabase)
-	uv run python infra/clickhouse_migrate.py
-
-seed:          ## seed ClickHouse events + OpenSearch demo docs/template
-	uv run python infra/seed.py
-	uv run python infra/opensearch_setup.py
-
-datastack-up:  ## start ClickHouse, OpenSearch, Dashboards, Logstash
-	docker compose -f infra/docker-compose.yml up -d clickhouse opensearch opensearch-dashboards logstash
-
-api:
+api:           ## FastAPI BFF (http://localhost:8000)
 	uv run uvicorn apps.api.main:app --reload --port 8000
 
-agents:        ## AgentOS runtime
+agents:        ## AgentOS runtime (http://localhost:7777)
 	uv run uvicorn services.agents.agentos_app:app --reload --port 7777
 
-web:
+web:           ## Next.js console (http://localhost:3000)
 	pnpm --filter @aegis/web dev
 
 lint:

@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Bot, Database, Loader2, Plug, Search } from "lucide-react";
+import { Bot, Database, Loader2, Plug, Search, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Panel, StatusLabel } from "@/components/soc/flagship-ui";
 import type { IntegrationRecord } from "@/lib/api";
 
-type Provider = "opensearch";
+type Provider = "opensearch" | "openrouter";
 
 type Field = { key: string; label: string; placeholder: string; type?: string };
 
@@ -25,6 +25,16 @@ const SPECS: Record<
       { key: "password", label: "Password", placeholder: "••••••", type: "password" },
     ],
     defaults: { url: "http://localhost:9200", user: "admin", password: "admin" },
+  },
+  openrouter: {
+    name: "OpenRouter (LLM)",
+    icon: Sparkles,
+    blurb: "Bring your own OpenRouter key so the Argus assistant runs on your account. Optionally pin a model.",
+    fields: [
+      { key: "api_key", label: "API key", placeholder: "sk-or-v1-…", type: "password" },
+      { key: "model", label: "Model (optional)", placeholder: "anthropic/claude-sonnet-4.5" },
+    ],
+    defaults: { api_key: "", model: "" },
   },
 };
 
@@ -179,8 +189,9 @@ function ConnectorCard({ provider, initial }: { provider: Provider; initial?: In
 export function DataConnectors({ integrations }: { integrations: IntegrationRecord[] }) {
   const byProvider = (p: Provider) => integrations.find((i) => i.provider === p);
   return (
-    <div className="grid gap-4 p-4 pb-0 lg:p-5 lg:pb-0">
+    <div className="grid gap-4 p-4 pb-0 lg:grid-cols-2 lg:p-5 lg:pb-0">
       <ConnectorCard provider="opensearch" initial={byProvider("opensearch")} />
+      <ConnectorCard provider="openrouter" initial={byProvider("openrouter")} />
     </div>
   );
 }

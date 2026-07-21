@@ -10,7 +10,10 @@ from __future__ import annotations
 from aegis_core.audit import AuditChain, AuditRecord, audit_chain, compute_hash
 from aegis_core.connectors import (
     DATA_PROVIDERS,
+    LLM_PROVIDERS,
+    REGISTRY_PROVIDERS,
     opensearch_for_tenant,
+    openrouter_for_tenant,
     ping as ping_connector,
     registry as connector_registry,
 )
@@ -52,6 +55,9 @@ __all__ = [
     "compute_hash",
     "ConfigurationError",
     "DATA_PROVIDERS",
+    "LLM_PROVIDERS",
+    "REGISTRY_PROVIDERS",
+    "openrouter_for_tenant",
     "LocalStorage",
     "NotFoundError",
     "OpenSearchClient",

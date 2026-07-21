@@ -149,6 +149,14 @@ class MemoryTenants:
             self._data[tenant_id] = row
             return row
 
+    def update(self, tenant_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
+        with self._lock:
+            current = self._data.get(tenant_id)
+            if current is None:
+                return None
+            current.update({k: v for k, v in patch.items() if v is not None})
+            return current
+
 
 def _make_tenants_store() -> Any:
     if get_settings().persistence == "postgres":
@@ -185,11 +193,12 @@ def rehydrate_connectors() -> int:
         except Exception:  # noqa: BLE001
             continue
         for integ in integrations:
-            if integ.get("provider") != "opensearch":
-                continue
+            provider = integ.get("provider")
             config = integ.get("config") or {}
-            if not config.get("url"):
-                continue
-            connector_registry.set(tenant_id, "opensearch", config, agent_access=bool(config.get("agent_access", True)))
-            restored += 1
+            if provider == "opensearch" and config.get("url"):
+                connector_registry.set(tenant_id, "opensearch", config, agent_access=bool(config.get("agent_access", True)))
+                restored += 1
+            elif provider == "openrouter" and config.get("api_key"):
+                connector_registry.set(tenant_id, "openrouter", config, agent_access=bool(config.get("agent_access", True)))
+                restored += 1
     return restored

@@ -53,6 +53,51 @@ class OpenSearchClient:
             resp.raise_for_status()
             return resp.json().get("aggregations", {})
 
+    def discover_entities(
+        self, *, tenant_id: str, field: str, window: str = "now-7d", size: int = 200
+    ) -> list[dict[str, Any]]:
+        """Aggregate distinct entities (hosts/users) from the tenant's logs into device records.
+
+        Returns one record per distinct value of ``field`` (e.g. ``host.name``/``user.name``)
+        with the event volume, first/last seen, and top source IPs, event categories and log
+        sources — the "device information" surfaced on the Assets page. Empty when the tenant
+        has no indices/events yet.
+        """
+        aggs = {
+            "entities": {
+                "terms": {"field": field, "size": size},
+                "aggs": {
+                    "last_seen": {"max": {"field": "@timestamp"}},
+                    "first_seen": {"min": {"field": "@timestamp"}},
+                    "ips": {"terms": {"field": "source.ip", "size": 4}},
+                    "categories": {"terms": {"field": "event.category", "size": 4}},
+                    "actions": {"terms": {"field": "event.action", "size": 4}},
+                    "sources": {"terms": {"field": "source_tool", "size": 3}},
+                },
+            }
+        }
+        query = {"range": {"@timestamp": {"gte": window}}}
+        result = self.aggregate(query, aggs, tenant_id=tenant_id)
+        buckets = result.get("entities", {}).get("buckets", []) if result else []
+        records: list[dict[str, Any]] = []
+        for b in buckets:
+            name = str(b.get("key") or "").strip()
+            if not name or name.lower() in {"unknown", "-", "n/a"}:
+                continue
+            records.append(
+                {
+                    "name": name,
+                    "events": int(b.get("doc_count", 0)),
+                    "last_seen": b.get("last_seen", {}).get("value_as_string"),
+                    "first_seen": b.get("first_seen", {}).get("value_as_string"),
+                    "source_ips": [str(x.get("key")) for x in b.get("ips", {}).get("buckets", [])],
+                    "categories": [str(x.get("key")) for x in b.get("categories", {}).get("buckets", [])],
+                    "actions": [str(x.get("key")) for x in b.get("actions", {}).get("buckets", [])],
+                    "sources": [str(x.get("key")) for x in b.get("sources", {}).get("buckets", [])],
+                }
+            )
+        return records
+
     def count(self, query: dict[str, Any], *, tenant_id: str) -> int:
         """Count documents matching ``query`` in the tenant's indices."""
         index = self._index(tenant_id)

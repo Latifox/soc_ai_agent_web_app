@@ -138,6 +138,13 @@ export interface AssetRecord {
   criticality: string;
   risk_score: number;
   attributes: Record<string, unknown>;
+  discovered?: boolean;
+}
+
+export interface DiscoveredAssets {
+  available: boolean;
+  reason?: string;
+  assets: AssetRecord[];
 }
 
 export interface ApprovalRecord {
@@ -232,11 +239,13 @@ export interface ReportRecord {
 }
 export interface WhoAmI {
   tenant_id: string;
+  tenant_name?: string | null;
   user_id: string;
+  email?: string | null;
   role: string;
   permissions: string[];
 }
-export const EMPTY_WHOAMI: WhoAmI = { tenant_id: "—", user_id: "—", role: "—", permissions: [] };
+export const EMPTY_WHOAMI: WhoAmI = { tenant_id: "—", tenant_name: null, user_id: "—", email: null, role: "—", permissions: [] };
 export const getWhoami = () => apiTry<WhoAmI>("/whoami", EMPTY_WHOAMI);
 
 export interface TenantRecord {
@@ -278,6 +287,8 @@ export const getCases = () => apiTry<CaseRecord[]>("/cases", []);
 export const getCase = (id: string) => apiFetch<CaseRecord>(`/cases/${id}`);
 export const getIntegrations = () => apiTry<IntegrationRecord[]>("/integrations", []);
 export const getAssets = () => apiTry<AssetRecord[]>("/assets", []);
+export const getDiscoveredAssets = () =>
+  apiTry<DiscoveredAssets>("/assets/discovered", { available: false, assets: [] });
 export const getApprovals = () => apiTry<ApprovalRecord[]>("/approvals", []);
 export const getAutonomyPolicies = () => apiTry<AutonomyPolicy[]>("/autonomy-policies", []);
 export const getMetrics = () => apiTry<Metrics>("/metrics", EMPTY_METRICS);

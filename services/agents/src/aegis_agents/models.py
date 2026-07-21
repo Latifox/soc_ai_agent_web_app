@@ -11,7 +11,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from aegis_core import get_settings
+from aegis_core import get_settings, get_tenant_context, openrouter_for_tenant
+
+
+def _tenant_id() -> str | None:
+    """The bound tenant for this run, if any (so BYO-key resolution can apply)."""
+    try:
+        ctx = get_tenant_context()
+    except Exception:  # noqa: BLE001 - no context bound is a normal (global) case
+        return None
+    return ctx.tenant_id if ctx else None
 
 
 def _model(model_id: str, *, extra_body: dict[str, Any] | None = None) -> Any:
@@ -19,10 +28,13 @@ def _model(model_id: str, *, extra_body: dict[str, Any] | None = None) -> Any:
     if settings.llm_provider == "openrouter":
         from agno.models.openrouter import OpenRouter  # noqa: PLC0415
 
+        # Per-tenant bring-your-own-key: when the tenant saved an OpenRouter connector in the
+        # web app, use their key (and pinned model, if any); else the global default.
+        resolved = openrouter_for_tenant(_tenant_id(), settings)
         kwargs: dict[str, Any] = {}
         if extra_body:
             kwargs["extra_body"] = extra_body
-        return OpenRouter(id=model_id, api_key=settings.openrouter_api_key or None, **kwargs)
+        return OpenRouter(id=resolved["model"] or model_id, api_key=resolved["api_key"], **kwargs)
     from agno.models.anthropic import Claude  # noqa: PLC0415
 
     return Claude(id=model_id)

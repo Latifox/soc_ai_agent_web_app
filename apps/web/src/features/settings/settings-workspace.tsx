@@ -37,11 +37,31 @@ export function SettingsWorkspace({
   const [email, setEmail] = useState(initial.contact_email);
   const [prefs, setPrefs] = useState(initial.preferences);
   const [saved, setSaved] = useState(initial);
-  const [busy, setBusy] = useState<"" | "org" | "prefs">("");
+  const [busy, setBusy] = useState<"" | "org" | "prefs" | "tenant">("");
   const [notice, setNotice] = useState("");
+  const [tenantName, setTenantName] = useState(who.tenant_name ?? "");
+  const [savedTenantName, setSavedTenantName] = useState(who.tenant_name ?? "");
 
   const denied = policies.filter((p) => p.mode === "deny").length;
   const orgDirty = orgName !== saved.org_name || timezone !== saved.timezone || email !== saved.contact_email;
+  const tenantDirty = tenantName.trim() !== "" && tenantName.trim() !== savedTenantName;
+
+  async function saveTenant() {
+    setBusy("tenant");
+    setNotice("");
+    try {
+      const updated = (await backend(`tenants/${who.tenant_id}`, { method: "PATCH", body: JSON.stringify({ name: tenantName.trim() }) })) as { name?: string };
+      const next = updated.name ?? tenantName.trim();
+      setTenantName(next);
+      setSavedTenantName(next);
+      setNotice("Tenant name saved.");
+      router.refresh();
+    } catch {
+      setNotice("Rename failed — needs admin (autonomy:write).");
+    } finally {
+      setBusy("");
+    }
+  }
 
   async function save(patch: Record<string, unknown>, kind: "org" | "prefs") {
     setBusy(kind);
@@ -81,6 +101,14 @@ export function SettingsWorkspace({
               <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="soc@org.com" className="h-9 w-full rounded-control border border-border bg-surface px-3 outline-none focus:border-primary" /></label>
             <label className="block space-y-1 text-sm"><span className="soc-label">Timezone</span>
               <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="h-9 w-full rounded-control border border-border bg-surface px-3 outline-none focus:border-primary">{TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+            <div className="space-y-1.5 rounded-control border border-border bg-surface-subtle/40 p-3">
+              <label className="block space-y-1 text-sm"><span className="soc-label">Workspace / tenant name</span>
+                <div className="flex gap-2">
+                  <input value={tenantName} onChange={(e) => setTenantName(e.target.value)} placeholder="Acme SOC" className="h-9 w-full rounded-control border border-border bg-surface px-3 outline-none focus:border-primary" />
+                  <Button size="sm" variant="secondary" onClick={saveTenant} disabled={busy !== "" || !tenantDirty}>{busy === "tenant" ? <Loader2 className="animate-spin" /> : <Save />} Rename</Button>
+                </div></label>
+              <p className="text-[11px] text-muted-foreground">Shown in the header and workspace switcher. Applies to this tenant across the console.</p>
+            </div>
             <div className="soc-inset p-3 text-xs"><p className="soc-label">Tenant ID</p><p className="mt-1 break-all font-mono">{who.tenant_id}</p></div>
           </div>
         </Panel>

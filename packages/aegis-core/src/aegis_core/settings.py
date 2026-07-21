@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     pg_url: str = "postgresql+psycopg://postgres:postgres@localhost:54322/postgres"
     # Metadata store: "memory" (dev/tests, volatile) or "postgres" (Supabase, durable).
     persistence: Literal["memory", "postgres"] = "memory"
+    # Load demo SOC records + synthetic OpenSearch events at startup. Off by default so the
+    # console starts clean and reflects *your* connected OpenSearch, not fabricated data.
+    seed_demo: bool = False
 
     @property
     def pg_dsn(self) -> str:
@@ -75,7 +78,7 @@ class Settings(BaseSettings):
     # openrouter (default): one key, any model, ids like "anthropic/claude-sonnet-4.5".
     # anthropic: direct API with native Claude ids.
     llm_provider: Literal["openrouter", "anthropic"] = "openrouter"
-    openrouter_api_key: str = ""
+    openrouter_api_key: str = ""  # set via OPENROUTER_API_KEY (never hardcode a real key)
     anthropic_api_key: str = ""
     model_reasoner: str = "anthropic/claude-sonnet-4.5"
     model_balanced: str = "anthropic/claude-sonnet-4.5"

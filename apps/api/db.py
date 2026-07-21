@@ -166,6 +166,19 @@ class PgTenants:
             r = cur.fetchone()
             return {"id": str(r[0]), "name": r[1], "status": r[2], "opensearch_url": r[3]}
 
+    def update(self, tenant_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
+        allowed = {k: v for k, v in patch.items() if k in {"name", "status", "opensearch_url"} and v is not None}
+        if not allowed:
+            return self.get(tenant_id)
+        sets = ", ".join(f"{k} = %s" for k in allowed)
+        with get_pool().connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                f"update aegis.tenants set {sets} where id = %s returning id, name, status, opensearch_url",  # noqa: S608 - keys are allow-listed above
+                (*allowed.values(), tenant_id),
+            )
+            r = cur.fetchone()
+            return {"id": str(r[0]), "name": r[1], "status": r[2], "opensearch_url": r[3]} if r else None
+
 
 def ping() -> bool:
     """True if the pool can round-trip a query (used at startup)."""

@@ -3,6 +3,21 @@
 > Working codename: **Aegis** (platform) · **Argus** (autonomous SOC agent crew).
 > Both names are placeholders — rename freely.
 
+## Deploy on Railway
+
+No Docker. Deploy **web + api** as two Railway services from this repo (the AI assistant runs
+in-process in the api; add the optional **agents** service later). OpenSearch + Supabase are
+external (their own free tiers), so they don't use Railway credit.
+
+1. Railway → **New Project → Deploy from GitHub repo** → pick this repo, twice (one project, two
+   services).
+2. **web** service → Settings → Root Directory `apps/web` (auto-reads `apps/web/railway.json`).
+3. **api** service → Settings → Root Directory `/`, Config path `railway.api.json`.
+4. Paste the env blocks from [`DEPLOY.md`](DEPLOY.md) into each service’s **Variables → Raw
+   Editor**, then set `AEGIS_API_URL` (web) to the api service’s public URL.
+
+Full guide, env matrix, and the paste-ready variable blocks: **[DEPLOY.md](DEPLOY.md)**.
+
 Aegis is a multi-tenant, AI-native Security Operations platform built around three ideas:
 
 1. **Detection & Response as Code** — every detection rule, enrichment, and response

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from apps.api.deps import CurrentTenant
+from apps.api.deps import CurrentTenant, CurrentUser
 from apps.api.errors import Problem
 from apps.api.routers import (
     agents,
@@ -61,11 +61,21 @@ async def v1_root() -> dict[str, str]:
         403: {"model": Problem, "description": "No tenant claim"},
     },
 )
-async def whoami(tenant: CurrentTenant) -> dict[str, object]:
-    """Echo the resolved tenant context (protected route)."""
+async def whoami(tenant: CurrentTenant, user: CurrentUser) -> dict[str, object]:
+    """Echo the resolved identity + tenant context (protected route)."""
+    from apps.api.store import tenants_store  # noqa: PLC0415 - avoid import cycle at module load
+
+    tenant_name: str | None = None
+    try:
+        row = tenants_store.get(tenant.tenant_id)
+        tenant_name = row.get("name") if row else None
+    except Exception:  # noqa: BLE001 - directory lookup is best-effort
+        tenant_name = None
     return {
         "tenant_id": tenant.tenant_id,
+        "tenant_name": tenant_name,
         "user_id": tenant.user_id,
+        "email": user.email,
         "role": tenant.role,
         "permissions": list(tenant.permissions),
     }

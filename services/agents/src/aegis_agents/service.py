@@ -129,7 +129,10 @@ class ArgusService:
         """
         def _run(put: Any) -> None:
             with argus_run_scope(tenant_id):
-                for event in self.assistant.run(
+                # Build inside the tenant scope so the model picks up the tenant's own
+                # OpenRouter key/model (BYO-key) when they've connected one; else the default.
+                assistant = build_assistant(self._db)
+                for event in assistant.run(
                     message, stream=True, session_id=session_id, user_id=self._memory_user(tenant_id)
                 ):
                     put(event)
