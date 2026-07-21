@@ -41,6 +41,18 @@ def build_db() -> PostgresDb:
     return PostgresDb(db_url=get_settings().pg_url)
 
 
+def _memory_kwargs(db: PostgresDb | None) -> dict[str, bool]:
+    """Persistent memory options — only when a durable store is attached.
+
+    With memories enabled the crew retains per-tenant facts across runs (known-good
+    IPs, prior verdicts, analyst preferences); the service layer passes a
+    tenant-scoped ``user_id`` so memories never cross tenants.
+    """
+    if db is None:
+        return {}
+    return {"enable_user_memories": True, "enable_session_summaries": True}
+
+
 def build_triage(db: PostgresDb | None = None) -> Agent:
     return Agent(
         name="Triage",
@@ -51,6 +63,7 @@ def build_triage(db: PostgresDb | None = None) -> Agent:
         db=db,
         instructions=ins.TRIAGE,
         markdown=True,
+        **_memory_kwargs(db),
     )
 
 
@@ -65,6 +78,7 @@ def build_investigation(db: PostgresDb | None = None) -> Agent:
         instructions=ins.INVESTIGATION,
         add_history_to_context=True,
         markdown=True,
+        **_memory_kwargs(db),
     )
 
 
@@ -95,6 +109,7 @@ def build_response(db: PostgresDb | None = None) -> Agent:
         tool_hooks=HOOKS,
         db=db,
         instructions=ins.RESPONSE,
+        **_memory_kwargs(db),
     )
 
 
@@ -108,6 +123,7 @@ def build_detection_eng(db: PostgresDb | None = None) -> Agent:
         db=db,
         instructions=ins.DETECTION_ENG,
         markdown=True,
+        **_memory_kwargs(db),
     )
 
 

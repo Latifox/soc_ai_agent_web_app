@@ -14,6 +14,7 @@ from apps.api.errors import Problem
 from apps.api.routers import (
     approvals,
     assets,
+    assistant,
     autonomy,
     cases,
     incidents,
@@ -34,6 +35,7 @@ router.include_router(approvals.router)
 router.include_router(autonomy.router)
 router.include_router(search.router)
 router.include_router(metrics.router)
+router.include_router(assistant.router)
 
 
 @router.get("/")

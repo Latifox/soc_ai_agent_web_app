@@ -3,16 +3,16 @@ import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * BFF stream proxy: browser -> here -> AgentOS (Argus). Injects the caller's tenant
- * JWT so AgentOS + MCP tools enforce isolation; the browser never talks to AgentOS
- * directly with secrets. Streams OpenUI Lang tokens back as SSE.
+ * Assistant stream proxy: browser -> here -> FastAPI /api/v1/assistant/stream (Argus
+ * crew via ArgusService). Injects the caller's tenant JWT so the crew + tools enforce
+ * isolation; the browser never holds backend credentials. Relays SSE.
  * See docs/09-chat-generative-ui.md.
  */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const AGENTOS_URL = process.env.AGENTOS_URL ?? "http://localhost:7777";
+const API_URL = process.env.AEGIS_API_URL ?? "http://localhost:8000";
 
 export async function POST(req: NextRequest) {
   // Verified Supabase session; the access token carries the tenant_id claim that
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const token = session.access_token;
   const body = await req.text();
 
-  const upstream = await fetch(`${AGENTOS_URL}/runs?stream=true`, {
+  const upstream = await fetch(`${API_URL}/api/v1/assistant/stream`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
