@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
 
+    # ── AgentOS ─────────────────────────────────────────────────────────────
+    agentos_url: str = "http://localhost:7777"
+    agentos_security_key: str = "change-me"
+
     # ── API / BFF ───────────────────────────────────────────────────────────
     api_cors_origins: str = "http://localhost:3000"
 

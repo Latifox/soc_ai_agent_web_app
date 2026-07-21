@@ -87,3 +87,9 @@ class SearchRequest(BaseModel):
     query: str  # read-only SQL (clickhouse) or Lucene query_string (opensearch)
     size: int = Field(default=50, ge=1, le=500)
 
+
+class FederatedSearchRequest(BaseModel):
+    engine: Literal["elastic", "splunk", "sentinel"]
+    query: str
+    size: int = Field(default=50, ge=1, le=500)
+

@@ -56,13 +56,20 @@ async def decide_approval(approval_id: str, body: ApprovalDecision, tenant: Appr
         {"status": status, "decided_by": tenant.user_id, "decided_at": datetime.now(UTC).isoformat()},
     )
     assert updated is not None  # noqa: S101 - fetched above under lock
-    # Resume the paused AgentOS run with the confirmed/rejected requirement. Wiring to the
-    # AgentOS approvals endpoint (continue_run) lands with AI-05; recorded + audited here.
+    # Resume the paused AgentOS run with the confirmed/rejected requirement.
+    from apps.api.agentos_client import resume_run  # noqa: PLC0415
+
+    resume = resume_run(
+        run_id=str(approval.get("run_id")),
+        tool_name=str(approval.get("tool_name")),
+        approved=body.decision == "approve",
+    )
     log.info(
         "approval.decided",
         tenant_id=tenant.tenant_id,
         run_id=approval.get("run_id"),
         tool=approval.get("tool_name"),
         decision=body.decision,
+        resumed=resume.get("resumed"),
     )
-    return updated
+    return {**updated, "resume": resume}

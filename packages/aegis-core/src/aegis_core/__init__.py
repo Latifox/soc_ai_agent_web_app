@@ -33,6 +33,7 @@ from aegis_core.errors import (
     TenantContextError,
     TenantIsolationError,
 )
+from aegis_core.federation import federated_search
 from aegis_core.logging import configure_logging, get_logger
 from aegis_core.opensearch import OpenSearchClient, get_opensearch
 from aegis_core.secrets import SecretsBackend, get_secrets
@@ -67,6 +68,7 @@ __all__ = [
     "configure_logging",
     "configure_tracing",
     "current_tenant_id",
+    "federated_search",
     "get_clickhouse",
     "get_logger",
     "get_opensearch",

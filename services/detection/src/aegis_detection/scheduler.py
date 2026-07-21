@@ -23,12 +23,15 @@ def run_one(rule: Rule | dict, *, tenant_id: str) -> dict[str, Any]:
     parsed = rule if isinstance(rule, Rule) else Rule.from_yaml_obj(rule)
     compiled = compile_rule(parsed)
     rows = run_rule(compiled, tenant_id=tenant_id)
+    entities = sorted({str(r.get("src_ip") or r.get("user_name") or "") for r in rows[:100]} - {""})
     summary = {
         "rule_id": compiled.rule_id,
         "type": compiled.type,
         "matches": len(rows),
         "alert": bool(rows) and not parsed.learning_mode,
         "learning_mode": parsed.learning_mode,
+        "severity": parsed.severity,
+        "entities": entities,
     }
     log.info("detection.run", tenant_id=tenant_id, **{k: summary[k] for k in ("rule_id", "matches", "alert")})
     if summary["alert"]:
@@ -49,3 +52,32 @@ def run_tenant(rules: Iterable[Rule | dict], *, tenant_id: str) -> list[dict[str
             continue
         results.append(run_one(parsed, tenant_id=tenant_id))
     return results
+
+
+def run_pipeline(rules: Iterable[Rule | dict], *, tenant_id: str) -> dict[str, Any]:
+    """Full cycle: run rules -> correlate alerting detections -> persist incidents.
+
+    Returns ``{summaries, incidents, persisted}``. Persistence failures degrade gracefully
+    (incidents are still returned for the caller to retry/store elsewhere).
+    """
+    from aegis_detection.correlate import correlate  # noqa: PLC0415
+    from aegis_detection.persist import persist_incidents  # noqa: PLC0415
+
+    summaries = run_tenant(rules, tenant_id=tenant_id)
+    alerting = [
+        {
+            "detection_id": s.get("detection_id"),
+            "rule_id": s.get("rule_id"),
+            "severity": s.get("severity", "medium"),
+            "entities": s.get("entities", []),
+        }
+        for s in summaries
+        if s.get("alert")
+    ]
+    incidents = correlate(alerting)
+    try:
+        persisted = persist_incidents(incidents, tenant_id=tenant_id) if incidents else 0
+    except Exception as exc:  # noqa: BLE001 - degrade gracefully
+        log.warning("incidents.persist.failed", tenant_id=tenant_id, error=str(exc))
+        persisted = 0
+    return {"summaries": summaries, "incidents": incidents, "persisted": persisted}

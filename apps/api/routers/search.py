@@ -11,11 +11,12 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from aegis_core import get_clickhouse, get_opensearch, get_settings
-from aegis_core.errors import PermissionDeniedError
+from aegis_core import federated_search, get_clickhouse, get_opensearch, get_settings
+from aegis_core.errors import NotFoundError, PermissionDeniedError
 
 from apps.api.deps import CurrentTenant
-from apps.api.schemas import SearchRequest
+from apps.api.schemas import FederatedSearchRequest, SearchRequest
+from apps.api.store import integrations_repo
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -35,3 +36,21 @@ async def search(body: SearchRequest, tenant: CurrentTenant) -> dict[str, Any]:
     query = {"query_string": {"query": body.query}}
     rows = get_opensearch(settings).search(query, tenant_id=tenant.tenant_id, size=body.size)
     return {"engine": "opensearch", "count": len(rows), "rows": rows}
+
+
+@router.post("/federated")
+async def federated(body: FederatedSearchRequest, tenant: CurrentTenant) -> dict[str, Any]:
+    """Query an external SIEM (Splunk/Elastic/Sentinel) using the tenant's integration creds."""
+    integration = next(
+        (i for i in integrations_repo.list(tenant.tenant_id) if i.get("provider") == body.engine),
+        None,
+    )
+    if integration is None:
+        raise NotFoundError(f"no {body.engine} integration configured for this tenant")
+    return federated_search(
+        body.engine,
+        body.query,
+        tenant_id=tenant.tenant_id,
+        connection=integration.get("config", {}),
+        size=body.size,
+    )
