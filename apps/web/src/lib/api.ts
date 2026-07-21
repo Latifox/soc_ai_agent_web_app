@@ -209,6 +209,15 @@ export interface ReportRecord {
   metrics: Record<string, number>;
   sections: ReportSection[];
 }
+export interface WhoAmI {
+  tenant_id: string;
+  user_id: string;
+  role: string;
+  permissions: string[];
+}
+export const EMPTY_WHOAMI: WhoAmI = { tenant_id: "—", user_id: "—", role: "—", permissions: [] };
+export const getWhoami = () => apiTry<WhoAmI>("/whoami", EMPTY_WHOAMI);
+
 export const getReports = () => apiTry<ReportRecord[]>("/reports", []);
 export const getReport = (id: string) => apiFetch<ReportRecord>(`/reports/${id}`);
 
