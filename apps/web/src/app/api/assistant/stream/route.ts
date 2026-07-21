@@ -1,5 +1,7 @@
 import type { NextRequest } from "next/server";
 
+import { createClient } from "@/lib/supabase/server";
+
 /**
  * BFF stream proxy: browser -> here -> AgentOS (Argus). Injects the caller's tenant
  * JWT so AgentOS + MCP tools enforce isolation; the browser never talks to AgentOS
@@ -13,9 +15,19 @@ export const dynamic = "force-dynamic";
 const AGENTOS_URL = process.env.AGENTOS_URL ?? "http://localhost:7777";
 
 export async function POST(req: NextRequest) {
-  // FE-02 replaces this with the @supabase/ssr server client to read the verified
-  // session; the access token carries the tenant_id claim used downstream.
-  const token = req.cookies.get("sb-access-token")?.value ?? "";
+  // Verified Supabase session; the access token carries the tenant_id claim that
+  // AgentOS + MCP tools enforce downstream.
+  const supabase = await createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) {
+    return new Response(JSON.stringify({ error: "unauthenticated" }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  const token = session.access_token;
   const body = await req.text();
 
   const upstream = await fetch(`${AGENTOS_URL}/runs?stream=true`, {
