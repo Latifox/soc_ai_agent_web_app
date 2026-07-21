@@ -143,6 +143,18 @@ _INTEGRATIONS: list[dict[str, Any]] = [
     {"provider": "docker", "name": "Docker", "status": "disconnected", "config": {}},
     {"provider": "datadog", "name": "Datadog", "status": "disconnected", "config": {}},
     {"provider": "okta", "name": "Okta", "status": "connected", "config": {"org": "demo-org"}},
+    {
+        "provider": "clickhouse",
+        "name": "ClickHouse",
+        "status": "disconnected",
+        "config": {"host": "localhost", "port": 8123, "database": "aegis", "user": "default", "password": "", "agent_access": True},
+    },
+    {
+        "provider": "opensearch",
+        "name": "OpenSearch",
+        "status": "disconnected",
+        "config": {"url": "http://localhost:9200", "user": "admin", "password": "admin", "agent_access": True},
+    },
 ]
 
 _ASSETS: list[dict[str, Any]] = [

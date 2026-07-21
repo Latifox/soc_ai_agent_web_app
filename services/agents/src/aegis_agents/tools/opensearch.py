@@ -11,7 +11,7 @@ from typing import Any
 
 from agno.tools import tool
 
-from aegis_core import current_tenant_id, get_opensearch, get_settings
+from aegis_core import current_tenant_id, get_settings, opensearch_for_tenant
 
 
 @tool(name="opensearch_search", show_result=True)
@@ -26,4 +26,7 @@ def opensearch_search(query_string: str, size: int = 50) -> list[dict[str, Any]]
         The matching documents' ``_source`` bodies.
     """
     query = {"query_string": {"query": query_string}}
-    return get_opensearch(get_settings()).search(query, tenant_id=current_tenant_id(), size=size)
+    tenant_id = current_tenant_id()
+    return opensearch_for_tenant(tenant_id, get_settings()).search(
+        query, tenant_id=tenant_id, size=size
+    )

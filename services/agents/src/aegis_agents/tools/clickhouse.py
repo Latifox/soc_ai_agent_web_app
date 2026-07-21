@@ -12,7 +12,7 @@ from typing import Any
 
 from agno.tools import tool
 
-from aegis_core import current_tenant_id, get_clickhouse, get_settings
+from aegis_core import clickhouse_for_tenant, current_tenant_id, get_settings
 from aegis_core.errors import PermissionDeniedError
 
 _READONLY = re.compile(r"^\s*(with|select)\b", re.IGNORECASE)
@@ -35,5 +35,6 @@ def clickhouse_query(sql: str) -> list[dict[str, Any]]:
         raise PermissionDeniedError(
             "clickhouse_query allows a single read-only SELECT/WITH statement only"
         )
-    backend = get_clickhouse(get_settings())
-    return backend.query(sql, tenant_id=current_tenant_id())
+    tenant_id = current_tenant_id()
+    backend = clickhouse_for_tenant(tenant_id, get_settings())
+    return backend.query(sql, tenant_id=tenant_id)

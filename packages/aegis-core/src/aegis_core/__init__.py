@@ -13,6 +13,13 @@ from aegis_core.clickhouse import (
     build_tenant_scoped_query,
     get_clickhouse,
 )
+from aegis_core.connectors import (
+    DATA_PROVIDERS,
+    clickhouse_for_tenant,
+    opensearch_for_tenant,
+    ping as ping_connector,
+    registry as connector_registry,
+)
 from aegis_core.context import (
     TenantContext,
     clear_tenant_context,
@@ -51,6 +58,7 @@ __all__ = [
     "audit_chain",
     "compute_hash",
     "ConfigurationError",
+    "DATA_PROVIDERS",
     "LocalStorage",
     "NotFoundError",
     "OpenSearchClient",
@@ -65,11 +73,15 @@ __all__ = [
     "TenantIsolationError",
     "build_tenant_scoped_query",
     "clear_tenant_context",
+    "clickhouse_for_tenant",
     "configure_logging",
     "configure_tracing",
+    "connector_registry",
     "current_tenant_id",
     "federated_search",
     "get_clickhouse",
+    "opensearch_for_tenant",
+    "ping_connector",
     "get_logger",
     "get_opensearch",
     "get_secrets",

@@ -11,7 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from aegis_core import federated_search, get_clickhouse, get_opensearch, get_settings
+from aegis_core import clickhouse_for_tenant, federated_search, get_settings, opensearch_for_tenant
 from aegis_core.errors import NotFoundError, PermissionDeniedError
 
 from apps.api.deps import CurrentTenant
@@ -31,10 +31,10 @@ async def search(body: SearchRequest, tenant: CurrentTenant) -> dict[str, Any]:
     if body.engine == "clickhouse":
         if not _READONLY.match(body.query) or _FORBIDDEN.search(body.query):
             raise PermissionDeniedError("clickhouse search allows read-only SELECT/WITH only")
-        rows = get_clickhouse(settings).query(body.query, tenant_id=tenant.tenant_id)
+        rows = clickhouse_for_tenant(tenant.tenant_id, settings).query(body.query, tenant_id=tenant.tenant_id)
         return {"engine": "clickhouse", "count": len(rows), "rows": rows}
     query = {"query_string": {"query": body.query}}
-    rows = get_opensearch(settings).search(query, tenant_id=tenant.tenant_id, size=body.size)
+    rows = opensearch_for_tenant(tenant.tenant_id, settings).search(query, tenant_id=tenant.tenant_id, size=body.size)
     return {"engine": "opensearch", "count": len(rows), "rows": rows}
 
 

@@ -10,12 +10,24 @@ import { createClient } from "@/lib/supabase/server";
 
 const API_URL = process.env.AEGIS_API_URL ?? "http://localhost:8000";
 
+async function bearer(): Promise<string | null> {
+  try {
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      const supabase = await createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) return session.access_token;
+    }
+  } catch {
+    // Supabase not configured — fall through to the dev token.
+  }
+  return process.env.AEGIS_DEV_TOKEN ?? null;
+}
+
 async function proxy(req: NextRequest, path: string[]) {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) {
+  const token = await bearer();
+  if (!token) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
 
@@ -27,7 +39,7 @@ async function proxy(req: NextRequest, path: string[]) {
     method: req.method,
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${session.access_token}`,
+      authorization: `Bearer ${token}`,
     },
     body,
   });
