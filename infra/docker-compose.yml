@@ -42,7 +42,9 @@ services:
   clickhouse-ui:
     image: ghcr.io/caioricciuti/ch-ui:latest
     environment:
-      - VITE_CLICKHOUSE_URL=http://localhost:8123
+      # Reached by ch-ui's in-container tunnel agent -> use the compose service name,
+      # not localhost. Sign in with user "default" and a blank password.
+      - VITE_CLICKHOUSE_URL=http://clickhouse:8123
       - VITE_CLICKHOUSE_USER=default
       - VITE_CLICKHOUSE_PASS=
     ports: ["5521:3488"]
