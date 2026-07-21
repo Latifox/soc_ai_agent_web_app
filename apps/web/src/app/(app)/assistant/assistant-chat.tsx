@@ -26,8 +26,11 @@ function stripFences(s: string): string {
 // first `root =` line so the program parses cleanly. Returns "" when there's no program yet.
 function extractLang(s: string): string {
   const stripped = stripFences(s);
-  const m = /(^|\n)[ \t]*root[ \t]*=/.exec(stripped);
-  return m ? stripped.slice(m.index).replace(/^\n/, "") : "";
+  // `root =` normally starts a line, but weaker models can glue it right after a leaked tool-JSON
+  // blob (…None}root = Stack). Match at a line start OR after a leading `}`/`]`/quote/space so the
+  // program is still recovered; `root\s*=` almost never appears in prose.
+  const m = /(^|\n|[}\]"'\s])(root[ \t]*=)/.exec(stripped);
+  return m ? stripped.slice(m.index + m[1].length).replace(/^\n/, "") : "";
 }
 
 // The assistant replies in OpenUI Lang → render as generative UI. While streaming, before the
@@ -64,13 +67,14 @@ async function persistTurn(threadId: string, context: ArgusContext | undefined, 
   }
 }
 
-export function AssistantChat({ context, onSaved }: { context?: ArgusContext; onSaved?: () => void }) {
-  const [messages, setMessages] = useState<Msg[]>([]);
+export function AssistantChat({ context, onSaved, initialMessages, threadKey }: { context?: ArgusContext; onSaved?: () => void; initialMessages?: Msg[]; threadKey?: string }) {
+  const [messages, setMessages] = useState<Msg[]>(initialMessages ?? []);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const threadId = useMemo(() => (context ? `${context.kind}-${context.id}` : (globalThis.crypto?.randomUUID?.() ?? String(Date.now()))), [context]);
+  // A loaded thread keeps its stored id so replies update the same Supabase thread.
+  const threadId = useMemo(() => threadKey ?? (context ? `${context.kind}-${context.id}` : (globalThis.crypto?.randomUUID?.() ?? String(Date.now()))), [threadKey, context]);
 
   useEffect(() => { taRef.current?.focus(); }, []);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages]);

@@ -170,9 +170,9 @@ def build_assistant(db: PostgresDb | None = None, *, extra_tools: list | None = 
         model=assistant_model(),  # good, fast model — immediate output, reliable OpenUI Lang
         tools=tools,
         tool_hooks=HOOKS,
-        # Cap tool calls so the model can't spiral into a per-entity count loop — it must
-        # aggregate from one or two searches, then answer. Keeps chat fast.
-        tool_call_limit=4,
+        # Cap tool calls so the model can't spiral into a per-entity count loop — but leave
+        # enough headroom for the rule flow (search + validate + backtest + deploy).
+        tool_call_limit=8,
         db=db,
         instructions=ins.ASSISTANT,
         markdown=True,

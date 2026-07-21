@@ -21,7 +21,7 @@ _REQUIRED = ("title", "severity", "type")
 _TYPES = {"query", "advanced_threshold", "source_monitor", "threat_match", "code", "spark"}
 
 
-@tool(name="rule_validate", show_result=True)
+@tool(name="rule_validate")
 def rule_validate(rule_yaml: str) -> dict[str, Any]:
     """Validate a detection rule's YAML against the Aegis schema.
 
@@ -44,7 +44,7 @@ def rule_validate(rule_yaml: str) -> dict[str, Any]:
     }
 
 
-@tool(name="rule_backtest", show_result=True)
+@tool(name="rule_backtest")
 def rule_backtest(rule_yaml: str, days: int = 30) -> dict[str, Any]:
     """Compile a rule and run it over the last ``days`` of the tenant's events.
 

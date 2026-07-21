@@ -223,24 +223,29 @@ const RuleCard = defineComponent({
     description: z.string().optional(),
     yaml: z.string(),
   }),
-  component: ({ props: p }) => (
-    <div className={cn("rounded-xl border bg-card p-4 shadow-sm", SEVERITY[p.severity])}>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-foreground">{p.title}</h3>
-        <Pill className={SEVERITY[p.severity]}>{p.severity}</Pill>
+  component: ({ props: p }) => {
+    // Models often emit the YAML with literal "\n" escapes inside the Lang string — render them
+    // as real line breaks. Deploy with the normalized YAML too.
+    const yaml = p.yaml.replace(/\\n/g, "\n").replace(/\\t/g, "  ");
+    return (
+      <div className={cn("rounded-xl border bg-card p-4 shadow-sm", SEVERITY[p.severity])}>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-foreground">{p.title}</h3>
+          <Pill className={SEVERITY[p.severity]}>{p.severity}</Pill>
+        </div>
+        {p.description && <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>}
+        <pre className="mt-2 max-h-56 overflow-auto rounded-lg bg-muted/40 p-2.5 text-xs leading-relaxed"><code>{yaml}</code></pre>
+        <div className="mt-3 flex justify-end">
+          <button
+            className="rounded-md bg-violet-600 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700"
+            onClick={() => window.dispatchEvent(new CustomEvent("aegis:deploy-rule", { detail: { ...p, yaml } }))}
+          >
+            Deploy to OpenSearch
+          </button>
+        </div>
       </div>
-      {p.description && <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>}
-      <pre className="mt-2 max-h-56 overflow-auto rounded-lg bg-muted/40 p-2.5 text-xs leading-relaxed"><code>{p.yaml}</code></pre>
-      <div className="mt-3 flex justify-end">
-        <button
-          className="rounded-md bg-violet-600 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700"
-          onClick={() => window.dispatchEvent(new CustomEvent("aegis:deploy-rule", { detail: p }))}
-        >
-          Deploy to OpenSearch
-        </button>
-      </div>
-    </div>
-  ),
+    );
+  },
 });
 
 const SuggestChips = defineComponent({
