@@ -175,6 +175,7 @@ export function Toolbar({
 
 export interface QueueItem {
   id: string;
+  fullId?: string; // full record id (for deep-links); `id` is the short display key
   title: string;
   entity: string;
   time: string;

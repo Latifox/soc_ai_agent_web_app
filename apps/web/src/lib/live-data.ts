@@ -178,6 +178,7 @@ export function incidentQueueItems(incidents: IncidentRecord[]): QueueItem[] {
     .sort((a, b) => (b.detected_at ?? "").localeCompare(a.detected_at ?? ""))
     .map((incident) => ({
       id: incident.id.slice(0, 8).toUpperCase(),
+      fullId: incident.id,
       title: incident.title,
       entity: incident.entities?.[0] ?? incident.assignee ?? "—",
       time: timeAgo(incident.detected_at ?? incident.created_at),

@@ -9,6 +9,7 @@ import {
   Laptop,
   Network,
   RefreshCw,
+  Sparkles,
   UserRound,
 } from "lucide-react";
 
@@ -97,7 +98,12 @@ export function InvestigationWorkspace({ queue, timelines, details, mitre }: Inv
                   <span><span className="soc-label mr-2">Entity</span><span className="font-mono text-muted-foreground">{selected.entity}</span></span>
                 </div>
               </div>
-              <Button size="sm" variant="secondary" onClick={() => router.push("/cases")}>Open full case <ExternalLink aria-hidden="true" /></Button>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button size="sm" variant="secondary" onClick={() => router.push("/cases")}>Open full case <ExternalLink aria-hidden="true" /></Button>
+                {selected.fullId ? (
+                  <Button size="sm" variant="primary" onClick={() => router.push(`/assistant?incident=${selected.fullId}`)}><Sparkles /> Investigate with Argus</Button>
+                ) : null}
+              </div>
             </div>
             <div className="soc-scrollbar -mb-4 mt-4 flex overflow-x-auto">
               {tabs.map((tab) => (
