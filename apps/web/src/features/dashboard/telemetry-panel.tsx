@@ -91,6 +91,19 @@ export function TelemetryPanel({ telemetry }: { telemetry: TelemetryOverview }) 
         </div>
 
         <div className="space-y-4 lg:border-l lg:border-border lg:pl-5">
+          {telemetry.threat_signals && telemetry.threat_signals.length > 0 ? (
+            <div>
+              <p className="soc-label mb-2">Threat signals ({telemetry.window_hours}h)</p>
+              <div className="grid grid-cols-2 gap-2">
+                {telemetry.threat_signals.map((t) => (
+                  <div key={t.key} className="soc-inset flex items-center justify-between gap-2 px-2.5 py-1.5">
+                    <span className="truncate text-[11px] text-muted-foreground">{t.name}</span>
+                    <span className={`shrink-0 font-mono text-sm font-semibold tabular-nums ${t.count > 100 ? "text-high" : "text-foreground"}`}>{compact(t.count)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div>
             <p className="soc-label mb-2">Top sources</p>
             <div className="space-y-1.5">

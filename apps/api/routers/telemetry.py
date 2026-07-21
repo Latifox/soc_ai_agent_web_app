@@ -34,6 +34,7 @@ def _empty(reason: str) -> dict[str, Any]:
         "timeline": [],
         "top_sources": [],
         "top_categories": [],
+        "threat_signals": [],
     }
 
 
@@ -59,6 +60,18 @@ async def telemetry_overview(tenant: CurrentTenant) -> dict[str, Any]:
         "sources": {"terms": {"field": "source_tool", "size": 6}},
         "categories": {"terms": {"field": "event.category", "size": 6}},
         "total": {"value_count": {"field": "@timestamp"}},
+        # Security signals — filter aggs over the raw message text (attacker detail lives there,
+        # not always in structured fields) so brute-force / recon activity surfaces on the dashboard.
+        "threats": {
+            "filters": {
+                "filters": {
+                    "auth_failures": {"bool": {"should": [{"match_phrase": {"message": "authentication failure"}}, {"match_phrase": {"message": "Failed password"}}], "minimum_should_match": 1}},
+                    "invalid_user": {"match_phrase": {"message": "invalid user"}},
+                    "connection_denied": {"bool": {"should": [{"match_phrase": {"message": "refused"}}, {"match_phrase": {"message": "denied"}}], "minimum_should_match": 1}},
+                    "sudo_root": {"match_phrase": {"message": "sudo"}},
+                },
+            }
+        },
     }
     try:
         result = client.aggregate(query, aggs, tenant_id=tenant.tenant_id)
@@ -71,6 +84,20 @@ async def telemetry_overview(tenant: CurrentTenant) -> dict[str, Any]:
 
     series = _densify(result.get("timeline", {}).get("buckets", []), _WINDOW_HOURS)
     total = int(result.get("total", {}).get("value", 0))
+    # Named filter buckets → threat signal counts (drop the catch-all + empty buckets).
+    _THREAT_LABELS = {
+        "auth_failures": "Auth failures",
+        "invalid_user": "Invalid users",
+        "connection_denied": "Denied / refused",
+        "sudo_root": "Privilege / sudo",
+    }
+    threat_buckets = result.get("threats", {}).get("buckets", {}) or {}
+    threat_signals = [
+        {"key": key, "name": label, "count": int(threat_buckets.get(key, {}).get("doc_count", 0))}
+        for key, label in _THREAT_LABELS.items()
+        if int(threat_buckets.get(key, {}).get("doc_count", 0)) > 0
+    ]
+    threat_signals.sort(key=lambda s: s["count"], reverse=True)
     return {
         "available": True,
         "window_hours": _WINDOW_HOURS,
@@ -79,4 +106,5 @@ async def telemetry_overview(tenant: CurrentTenant) -> dict[str, Any]:
         "timeline": series,
         "top_sources": [{"name": str(b.get("key") or "unknown"), "count": int(b.get("doc_count", 0))} for b in result.get("sources", {}).get("buckets", [])],
         "top_categories": [{"name": str(b.get("key") or "unknown"), "count": int(b.get("doc_count", 0))} for b in result.get("categories", {}).get("buckets", [])],
+        "threat_signals": threat_signals,
     }

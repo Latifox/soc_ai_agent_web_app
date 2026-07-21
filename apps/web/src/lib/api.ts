@@ -202,6 +202,7 @@ export interface TelemetryOverview {
   timeline: { bucket: string; label?: string; count: number }[];
   top_sources: { name: string; count: number }[];
   top_categories: { name: string; count: number }[];
+  threat_signals?: { key: string; name: string; count: number }[];
 }
 
 export const EMPTY_TELEMETRY: TelemetryOverview = {
@@ -212,6 +213,7 @@ export const EMPTY_TELEMETRY: TelemetryOverview = {
   timeline: [],
   top_sources: [],
   top_categories: [],
+  threat_signals: [],
 };
 
 export interface ReportSection {
