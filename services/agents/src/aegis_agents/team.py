@@ -13,10 +13,31 @@ from agno.team import Team
 
 from aegis_agents import instructions as ins
 from aegis_agents.agents import build_crew
+from aegis_agents.hooks import HOOKS
 from aegis_agents.models import reasoner
+from aegis_agents.tools import (
+    ioc_reputation,
+    opensearch_cluster_health,
+    opensearch_count,
+    opensearch_index_mapping,
+    opensearch_list_indices,
+    opensearch_search,
+)
 
 if TYPE_CHECKING:
     from agno.db.postgres import PostgresDb
+
+# Tools the leader can call DIRECTLY (no member fan-out) so simple analyst questions —
+# "top source IPs", "count failed logins", "which indices exist" — answer in one turn
+# instead of delegating to the crew. Deep multi-step investigations still delegate.
+_LEADER_TOOLS = [
+    opensearch_search,
+    opensearch_list_indices,
+    opensearch_index_mapping,
+    opensearch_count,
+    opensearch_cluster_health,
+    ioc_reputation,
+]
 
 
 def _guardrails() -> list[Any]:
@@ -38,11 +59,13 @@ def build_argus(db: PostgresDb | None = None, *, extra_tools: list[Any] | None =
     attached at the team level so the leader can call them directly.
     """
     crew = build_crew(db)
+    tools = [*_LEADER_TOOLS, *(extra_tools or [])]
     return Team(
         name="Argus SOC",
         model=reasoner(),
         members=list(crew.values()),
-        tools=list(extra_tools) if extra_tools else None,
+        tools=tools,
+        tool_hooks=HOOKS,
         db=db,
         instructions=ins.SUPERVISOR,
         pre_hooks=_guardrails(),

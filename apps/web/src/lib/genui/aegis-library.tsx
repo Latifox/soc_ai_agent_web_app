@@ -35,6 +35,18 @@ function Pill({ className, children }: { className?: string; children: React.Rea
   );
 }
 
+const Note = defineComponent({
+  name: "Note",
+  description: "A titled text card for plain answers, explanations, greetings, or 'no results' messages.",
+  props: z.object({ title: z.string().optional(), body: z.string() }),
+  component: ({ props: p }) => (
+    <div className="rounded-xl border border-border bg-card p-4">
+      {p.title && <h3 className="mb-1 text-sm font-semibold text-foreground">{p.title}</h3>}
+      <p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{p.body}</p>
+    </div>
+  ),
+});
+
 const AlertCard = defineComponent({
   name: "AlertCard",
   description: "A security alert/incident summary with severity, host, user, status.",
@@ -53,7 +65,7 @@ const AlertCard = defineComponent({
         <h3 className="text-sm font-semibold text-foreground">{p.title}</h3>
         <Pill className={STATUS[p.status]}>{p.status.replace("_", " ")}</Pill>
       </div>
-      {p.summary && <p className="mt-1 text-sm text-muted-foreground">{p.summary}</p>}
+      {p.summary && <p className="mt-1 text-sm text-muted-foreground">{p.summary}</p>} 
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>Severity: <b className="uppercase">{p.severity}</b></span>
         {p.host && <span>Host: <code>{p.host}</code></span>}
@@ -202,6 +214,57 @@ const EvidenceTable = defineComponent({
   ),
 });
 
+const RuleCard = defineComponent({
+  name: "RuleCard",
+  description: "A proposed detection rule with a one-click Deploy button (deploys as an OpenSearch Alerting monitor).",
+  props: z.object({
+    title: z.string(),
+    severity: z.enum(["low", "medium", "high", "critical"]),
+    description: z.string().optional(),
+    yaml: z.string(),
+  }),
+  component: ({ props: p }) => (
+    <div className={cn("rounded-xl border bg-card p-4 shadow-sm", SEVERITY[p.severity])}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-foreground">{p.title}</h3>
+        <Pill className={SEVERITY[p.severity]}>{p.severity}</Pill>
+      </div>
+      {p.description && <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>}
+      <pre className="mt-2 max-h-56 overflow-auto rounded-lg bg-muted/40 p-2.5 text-xs leading-relaxed"><code>{p.yaml}</code></pre>
+      <div className="mt-3 flex justify-end">
+        <button
+          className="rounded-md bg-violet-600 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700"
+          onClick={() => window.dispatchEvent(new CustomEvent("aegis:deploy-rule", { detail: p }))}
+        >
+          Deploy to OpenSearch
+        </button>
+      </div>
+    </div>
+  ),
+});
+
+const SuggestChips = defineComponent({
+  name: "SuggestChips",
+  description: "A labeled row of clickable follow-up prompts; clicking sends the prompt to the assistant.",
+  props: z.object({ label: z.string().optional(), prompts: z.array(z.string()) }),
+  component: ({ props: p }) => (
+    <div>
+      {p.label && <div className="mb-1.5 text-xs font-medium uppercase text-muted-foreground">{p.label}</div>}
+      <div className="flex flex-wrap gap-1.5">
+        {(p.prompts ?? []).map((prompt, i) => (
+          <button
+            key={i}
+            className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+            onClick={() => window.dispatchEvent(new CustomEvent("aegis:suggest", { detail: { prompt } }))}
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+    </div>
+  ),
+});
+
 export const aegisLibrary = createLibrary({
-  components: [AlertCard, MitreMappingTable, InvestigationTimeline, RuleDiff, ApprovalPrompt, Stack, EntityList, EvidenceTable],
+  components: [Note, AlertCard, MitreMappingTable, InvestigationTimeline, RuleDiff, RuleCard, SuggestChips, ApprovalPrompt, Stack, EntityList, EvidenceTable],
 });

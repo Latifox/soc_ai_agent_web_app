@@ -15,7 +15,7 @@ from aegis_agents.tools.opensearch import (
     opensearch_list_indices,
     opensearch_search,
 )
-from aegis_agents.tools.rules import rule_backtest, rule_validate
+from aegis_agents.tools.rules import rule_backtest, rule_deploy, rule_validate
 from aegis_agents.tools.soar import (
     soar_block_ip,
     soar_create_ticket,
@@ -44,6 +44,7 @@ __all__ = [
     "opensearch_list_indices",
     "opensearch_search",
     "rule_backtest",
+    "rule_deploy",
     "rule_validate",
     "soar_block_ip",
     "soar_create_ticket",

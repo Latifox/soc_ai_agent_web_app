@@ -41,6 +41,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         from apps.api.dev_seed import seed_dev_data  # noqa: PLC0415
 
         seed_dev_data()
+    # Replay stored per-tenant OpenSearch connections into the in-process connector registry
+    # so onboarded tenants reach their real cluster after a restart (not the localhost default).
+    from apps.api.store import rehydrate_connectors  # noqa: PLC0415
+
+    log.info("aegis-api.connectors.rehydrated", count=rehydrate_connectors())
     log.info("aegis-api.startup", env=settings.aegis_env)
     yield
     if settings.persistence == "postgres":

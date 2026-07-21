@@ -40,6 +40,49 @@ async def list_rules(tenant: CurrentTenant) -> list[dict[str, Any]]:
     return rules_repo.list(tenant.tenant_id)
 
 
+@router.post("/deploy-yaml", status_code=201)
+async def deploy_yaml(body: dict[str, Any], tenant: RulesWriter) -> dict[str, Any]:
+    """Deploy a raw rule YAML as a live OpenSearch Alerting monitor and persist the rule.
+
+    Powers the AI Assistant's generative-UI ``RuleCard`` "Deploy" button: the analyst reviews a
+    proposed rule in chat and deploys it in one click. Compiles YAML → monitor, creates it on the
+    tenant's cluster, and stores the rule (with its ``monitor_id``) so it appears on the Rules page.
+    """
+    import yaml as _yaml  # noqa: PLC0415
+
+    from aegis_detection.monitor import rule_to_monitor  # noqa: PLC0415
+
+    raw = str(body.get("yaml") or "").strip()
+    if not raw:
+        raise NotFoundError("no rule yaml provided")
+    try:
+        data = _yaml.safe_load(raw) or {}
+        data["enabled"] = True
+        client = opensearch_for_tenant(tenant.tenant_id, get_settings())
+        monitor = rule_to_monitor(data, tenant_id=tenant.tenant_id)
+        resp = client.create_monitor(monitor)
+        monitor_id = resp.get("_id")
+    except Exception as exc:  # noqa: BLE001 - surface the real failure
+        log.error("rule.deploy_yaml.failed", tenant_id=tenant.tenant_id, error=str(exc)[:200])
+        raise PermissionDeniedError(f"deploy to OpenSearch failed: {str(exc)[:160]}") from exc
+
+    rule = rules_repo.create(tenant.tenant_id, {
+        "title": data.get("title", monitor["name"]),
+        "severity": data.get("severity", "medium"),
+        "type": data.get("type", "query"),
+        "enabled": True,
+        "yaml": raw,
+        "tags": data.get("tags", ["assistant"]),
+        "query": data.get("query", ""),
+        "integration": "opensearch",
+        "monitor_id": monitor_id,
+        "author": "argus-assistant",
+        "applied_at": _now_iso(),
+    })
+    log.info("rule.deploy_yaml", tenant_id=tenant.tenant_id, monitor_id=monitor_id, name=monitor["name"])
+    return {"deployed": bool(monitor_id), "monitor_id": monitor_id, "name": monitor["name"], "rule": rule}
+
+
 @router.get("/monitors")
 async def list_monitors(tenant: CurrentTenant) -> dict[str, Any]:
     """List the OpenSearch Alerting monitors deployed on the tenant's cluster.

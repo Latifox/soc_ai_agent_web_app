@@ -14,6 +14,7 @@ from agno.agent import Agent
 
 from aegis_agents import instructions as ins
 from aegis_agents.hooks import HOOKS
+from aegis_agents.models import assistant as assistant_model
 from aegis_agents.models import balanced, fast, reasoner
 from aegis_agents.tools import (
     ioc_reputation,
@@ -23,6 +24,7 @@ from aegis_agents.tools import (
     opensearch_list_indices,
     opensearch_search,
     rule_backtest,
+    rule_deploy,
     rule_validate,
     soar_block_ip,
     soar_create_ticket,
@@ -140,6 +142,41 @@ def build_reporting(db: PostgresDb | None = None) -> Agent:
         db=db,
         instructions=ins.REPORTING,
         markdown=True,
+    )
+
+
+def build_assistant(db: PostgresDb | None = None, *, extra_tools: list | None = None) -> Agent:
+    """A single, fast, streaming SOC assistant for the interactive chat (AI Assistant).
+
+    One agent = one LLM call: it streams tokens immediately and always answers (no 6-member
+    fan-out, no slow reasoning phase). It has the tenant-scoped OpenSearch toolset directly so
+    it can query the cluster and render findings as OpenUI Lang (generative UI). Use the crew
+    Team for deep, multi-step incident workflows; use this for chat.
+    """
+    tools = [
+        opensearch_search,
+        opensearch_count,
+        opensearch_list_indices,
+        opensearch_index_mapping,
+        opensearch_cluster_health,
+        ioc_reputation,
+        rule_validate,
+        rule_backtest,
+        rule_deploy,
+        *(extra_tools or []),
+    ]
+    return Agent(
+        name="Argus Assistant",
+        model=assistant_model(),  # good, fast model — immediate output, reliable OpenUI Lang
+        tools=tools,
+        tool_hooks=HOOKS,
+        # Cap tool calls so the model can't spiral into a per-entity count loop — it must
+        # aggregate from one or two searches, then answer. Keeps chat fast.
+        tool_call_limit=4,
+        db=db,
+        instructions=ins.ASSISTANT,
+        markdown=True,
+        **_memory_kwargs(db),
     )
 
 

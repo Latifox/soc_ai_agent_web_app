@@ -80,6 +80,9 @@ class Settings(BaseSettings):
     model_reasoner: str = "anthropic/claude-sonnet-4.5"
     model_balanced: str = "anthropic/claude-sonnet-4.5"
     model_fast: str = "anthropic/claude-haiku-4.5"
+    # Interactive AI Assistant — a good, fast, non-runaway-reasoning model that reliably
+    # emits OpenUI Lang (generative UI) and calls tools. Kept separate from the crew tiers.
+    model_assistant: str = "anthropic/claude-sonnet-4.5"
 
     # ── Threat intel ────────────────────────────────────────────────────────
     virustotal_api_key: str = ""

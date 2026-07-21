@@ -159,3 +159,37 @@ def _make_tenants_store() -> Any:
 
 
 tenants_store = _make_tenants_store()
+
+
+def rehydrate_connectors() -> int:
+    """Repopulate the in-process connector registry from stored integrations.
+
+    The registry is in-memory, so onboarded tenants' OpenSearch connections are lost on
+    restart. On startup we replay every tenant's stored ``opensearch`` integration back
+    into the registry so ``opensearch_for_tenant`` (and thus the crew's tools) reaches the
+    tenant's real cluster — not the localhost default. Returns the count restored.
+    """
+    from aegis_core import connector_registry  # noqa: PLC0415
+
+    restored = 0
+    try:
+        tenants = tenants_store.list()
+    except Exception:  # noqa: BLE001 - never block startup on this
+        return 0
+    for tenant in tenants:
+        tenant_id = tenant.get("id")
+        if not tenant_id:
+            continue
+        try:
+            integrations = integrations_repo.list(tenant_id)
+        except Exception:  # noqa: BLE001
+            continue
+        for integ in integrations:
+            if integ.get("provider") != "opensearch":
+                continue
+            config = integ.get("config") or {}
+            if not config.get("url"):
+                continue
+            connector_registry.set(tenant_id, "opensearch", config, agent_access=bool(config.get("agent_access", True)))
+            restored += 1
+    return restored

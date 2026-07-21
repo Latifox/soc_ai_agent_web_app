@@ -14,12 +14,13 @@ from typing import TYPE_CHECKING, Any
 
 from aegis_core import audit_chain, get_logger
 
-from aegis_agents.agents import build_db
+from aegis_agents.agents import build_assistant, build_db
 from aegis_agents.context import argus_run_scope, build_session_state
 from aegis_agents.team import build_argus
 from aegis_agents.workflow import build_incident_workflow
 
 if TYPE_CHECKING:
+    from agno.agent import Agent
     from agno.db.postgres import PostgresDb
     from agno.team import Team
     from agno.workflow import Workflow
@@ -27,13 +28,20 @@ if TYPE_CHECKING:
 log = get_logger(__name__)
 
 
+# Agno event discriminators (``event.event``) that carry the LEADER's answer deltas.
+# Everything else — reasoning deltas, tool calls, member hand-offs — is filtered out so
+# the chain-of-thought never leaks into the reply. See ``iter_text``.
+_ANSWER_EVENTS = {"TeamRunContent", "RunContent"}
+
+
 class _TextEvent:
-    """A one-shot run event (``.content``) so buffered replies flow through ``iter_text``."""
+    """A synthetic answer event (``.content``) so injected text flows through ``iter_text``."""
 
-    __slots__ = ("content",)
+    __slots__ = ("content", "event")
 
-    def __init__(self, content: str) -> None:
+    def __init__(self, content: str, event: str = "TeamRunContent") -> None:
         self.content = content
+        self.event = event
 
 
 class ArgusService:
@@ -42,6 +50,7 @@ class ArgusService:
     def __init__(self, db: PostgresDb | None = None) -> None:
         self._db = db if db is not None else self._try_db()
         self._team: Team | None = None
+        self._assistant: Agent | None = None
         self._workflow: Workflow | None = None
 
     @staticmethod
@@ -57,6 +66,12 @@ class ArgusService:
         if self._team is None:
             self._team = build_argus(self._db)
         return self._team
+
+    @property
+    def assistant(self) -> Agent:
+        if self._assistant is None:
+            self._assistant = build_assistant(self._db)
+        return self._assistant
 
     @property
     def workflow(self) -> Workflow:
@@ -91,48 +106,79 @@ class ArgusService:
                 user_id=self._memory_user(tenant_id),
             )
 
-    def chat(self, tenant_id: str, message: str, *, session_id: str | None = None, stream: bool = True) -> Any:
-        """Analyst chat with the crew (AI Assistant); returns the run or event iterator.
+    def chat(self, tenant_id: str, message: str, *, session_id: str | None = None, stream: bool = True) -> Iterator[Any]:
+        """Analyst chat with the crew (AI Assistant) — yields live run events (token stream).
 
-        When ``AEGIS_MCP_ENABLED=1`` the crew runs with the OpenSearch MCP toolset connected
-        (ListIndex/Search/Count/Explain/…); that path buffers the reply (no token streaming).
+        ``stream=True`` (default) streams the leader's answer deltas as they're generated so
+        the UI renders progressively (and OpenUI Lang paints as generative UI live).
+        ``iter_text`` filters the stream to the leader's answer only (no reasoning leak).
+        When ``AEGIS_MCP_ENABLED=1`` the crew runs with the OpenSearch MCP toolset connected.
         """
         from aegis_agents.mcp import build_mcp_tools, mcp_enabled  # noqa: PLC0415
 
         if mcp_enabled():
-            return iter([_TextEvent(self._chat_with_mcp(tenant_id, message, session_id, build_mcp_tools))])
+            return self._chat_with_mcp_stream(tenant_id, message, session_id, build_mcp_tools)
+        return self._chat_stream(tenant_id, message, session_id)
 
-        # Buffer the FINAL answer only — streaming the team's raw events leaks the leader's
-        # chain-of-thought and member hand-offs into the reply. iter_text sees one clean event.
-        state = build_session_state(tenant_id=tenant_id)
-        with argus_run_scope(tenant_id):
-            resp = self.team.run(
-                message,
-                stream=False,
-                session_id=session_id,
-                session_state=state,
-                user_id=self._memory_user(tenant_id),
-            )
-        return iter([_TextEvent(str(getattr(resp, "content", resp) or ""))])
+    def _chat_stream(self, tenant_id: str, message: str, session_id: str | None) -> Iterator[Any]:
+        """Stream the fast single assistant agent (one LLM call → RunContent deltas).
 
-    def _chat_with_mcp(self, tenant_id: str, message: str, session_id: str | None, build_mcp_tools: Any) -> str:
-        """Run one chat turn with the OpenSearch MCP toolset connected. Returns the text."""
+        The agent runs on a dedicated worker thread so the whole run — tenant scope + tool
+        calls + streaming — lives in ONE context. (Starlette iterates the SSE generator across
+        threadpool threads, which would otherwise break the ``argus_run_scope`` contextvar.)
+        """
+        def _run(put: Any) -> None:
+            with argus_run_scope(tenant_id):
+                for event in self.assistant.run(
+                    message, stream=True, session_id=session_id, user_id=self._memory_user(tenant_id)
+                ):
+                    put(event)
+
+        yield from self._pump(_run, tenant_id)
+
+    def _pump(self, run: Any, tenant_id: str) -> Iterator[Any]:
+        """Run ``run(put)`` on a worker thread and yield the events it enqueues (single context)."""
+        import queue as _queue  # noqa: PLC0415
+        import threading  # noqa: PLC0415
+
+        q: _queue.Queue[Any] = _queue.Queue()
+        sentinel = object()
+
+        def _worker() -> None:
+            try:
+                run(q.put)
+            except Exception as exc:  # noqa: BLE001 - surface to the client stream
+                log.error("argus.chat.error", tenant_id=tenant_id, error=str(exc))
+                q.put(_TextEvent(f"⚠️ Assistant error: {exc}"))
+            finally:
+                q.put(sentinel)
+
+        threading.Thread(target=_worker, daemon=True).start()
+        while True:
+            item = q.get()
+            if item is sentinel:
+                break
+            yield item
+
+    def _chat_with_mcp_stream(self, tenant_id: str, message: str, session_id: str | None, build_mcp_tools: Any) -> Iterator[Any]:
+        """Stream a chat turn with the OpenSearch MCP toolset connected. The MCP session is
+        async-only, so the streaming run is driven on a worker thread (single context)."""
         import asyncio  # noqa: PLC0415
 
-        async def _run() -> str:
-            mcp = build_mcp_tools()
-            async with mcp:  # connects the MCP session(s)
-                team = build_argus(self._db, extra_tools=[mcp])
-                with argus_run_scope(tenant_id):
-                    resp = await team.arun(
-                        message,
-                        session_id=session_id,
-                        session_state=build_session_state(tenant_id=tenant_id),
-                        user_id=self._memory_user(tenant_id),
-                    )
-                return str(getattr(resp, "content", resp) or "")
+        def _run(put: Any) -> None:
+            async def _arun() -> None:
+                mcp = build_mcp_tools()
+                async with mcp:  # connects the MCP session(s)
+                    assistant = build_assistant(self._db, extra_tools=[mcp])
+                    with argus_run_scope(tenant_id):
+                        async for event in assistant.arun(
+                            message, stream=True, session_id=session_id, user_id=self._memory_user(tenant_id)
+                        ):
+                            put(event)
 
-        return asyncio.run(_run())
+            asyncio.run(_arun())
+
+        yield from self._pump(_run, tenant_id)
 
     def vibe_rule(self, tenant_id: str, prompt: str) -> Any:
         """NL -> detection rule via the Detection-Engineering agent (validated YAML)."""
@@ -158,8 +204,14 @@ class ArgusService:
 
 
 def iter_text(run_events: Iterator[Any]) -> Iterator[str]:
-    """Extract streamed text content from a run's event iterator (for SSE relays)."""
+    """Stream the leader's answer text from a run's event iterator (for SSE relays).
+
+    Only answer-content events pass — reasoning deltas, tool calls, and member hand-offs
+    are dropped so the reply never leaks the crew's chain-of-thought.
+    """
     for event in run_events:
+        if getattr(event, "event", None) not in _ANSWER_EVENTS:
+            continue
         content = getattr(event, "content", None)
         if isinstance(content, str) and content:
             yield content

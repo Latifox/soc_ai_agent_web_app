@@ -43,3 +43,6 @@ data/
 # Playwright MCP + local screenshots
 .playwright-mcp/
 /*.png
+
+# Vendored reference clones (integrated via pip, not built from source)
+vendor/
