@@ -2,9 +2,8 @@
 # Pattern: collect -> parse -> VRL normalize to ECS -> sinks. Add one source block per
 # connector (AWS/Azure/GCP/K8s/Cloudflare/Docker/Datadog/Okta/Syslog/HTTP/S3/Kafka).
 #
-# Local dev (CLICKHOUSE_BACKEND=chdb) has no ClickHouse server, so this template sinks the
-# normalized events to the local ./data archive + console. In server mode, enable the
-# `clickhouse` sink below. See docs/05 §8, docs/10.
+# Normalized events are archived to local ./data + console and shipped to OpenSearch
+# (t-{tenant}-events) — the sole telemetry/detection store. See docs/05 §8, docs/10.
 
 sources:
   demo:
@@ -36,11 +35,19 @@ sinks:
     inputs: [normalize]
     encoding: { codec: json }
 
-  # Enable in server mode (CLICKHOUSE_BACKEND=server):
-  # clickhouse:
-  #   type: clickhouse
-  #   inputs: [normalize]
-  #   endpoint: http://clickhouse:8123
-  #   database: aegis
-  #   table: events
+  # Telemetry/detection store — OpenSearch (local or a managed/remote cluster).
+  opensearch:
+    type: elasticsearch
+    inputs: [normalize]
+    endpoint: ${OPENSEARCH_URL:-http://opensearch:9200}
+    mode: bulk
+    api_version: v8
+    auth:
+      strategy: basic
+      user: ${OPENSEARCH_USER:-}
+      password: ${OPENSEARCH_PASSWORD:-}
+    bulk:
+      index: t-%{tenant_id}-events
+    tls:
+      verify_certificate: false
   #   skip_unknown_fields: true
