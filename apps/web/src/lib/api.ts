@@ -173,7 +173,8 @@ export interface TelemetryOverview {
   reason?: string;
   window_hours: number;
   total_events: number;
-  timeline: { bucket: string; count: number }[];
+  peak_per_hour: number;
+  timeline: { bucket: string; label?: string; count: number }[];
   top_sources: { name: string; count: number }[];
   top_categories: { name: string; count: number }[];
 }
@@ -182,6 +183,7 @@ export const EMPTY_TELEMETRY: TelemetryOverview = {
   available: false,
   window_hours: 24,
   total_events: 0,
+  peak_per_hour: 0,
   timeline: [],
   top_sources: [],
   top_categories: [],

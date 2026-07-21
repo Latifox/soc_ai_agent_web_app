@@ -97,8 +97,8 @@ export function DashboardWorkspace({
       <div className="p-4 pb-0 lg:p-5 lg:pb-0">
         <TelemetryPanel telemetry={telemetry} />
       </div>
-      <div className="grid gap-4 p-4 lg:p-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.75fr)]">
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="grid items-start gap-4 p-4 lg:p-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(310px,0.75fr)]">
+        <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
           <Panel title="Priority queue" eyebrow="Live incidents" action={<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{queue.length}</span>}>
             <PriorityQueue items={queue} selectedId={selectedId} onSelect={setSelectedId} />
           </Panel>
@@ -118,6 +118,40 @@ export function DashboardWorkspace({
                   { label: "Assignee", value: detail?.assignee ?? "—" },
                 ].map((item) => <div key={item.label} className="soc-inset px-3 py-3"><p className="soc-label">{item.label}</p><p className="mt-1 truncate text-sm font-semibold">{item.value}</p></div>)}
               </div>
+              {detail && (detail.entities.length || detail.mitre.length || detail.tags.length) ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {detail.entities.length ? (
+                    <div>
+                      <p className="soc-label mb-1.5">Entities</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detail.entities.slice(0, 6).map((e) => (
+                          <span key={e} className="rounded-control border border-border bg-surface px-2 py-0.5 font-mono text-[11px] text-muted-foreground">{e}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {detail.mitre.length ? (
+                    <div>
+                      <p className="soc-label mb-1.5">MITRE ATT&CK</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detail.mitre.slice(0, 6).map((m) => (
+                          <span key={m} className="rounded-control border border-primary/25 bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">{m}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {detail.tags.length ? (
+                    <div className="sm:col-span-2">
+                      <p className="soc-label mb-1.5">Tags</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {detail.tags.filter((t) => !/^T1\d{3}/i.test(t)).slice(0, 8).map((t) => (
+                          <span key={t} className="rounded-full bg-surface px-2 py-0.5 text-[11px] text-muted-foreground">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="mt-4 border-t border-border pt-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div><p className="text-sm font-medium">Recommended: {detail?.recommended ?? "Continue investigation"}</p><p className="mt-1 text-xs text-muted-foreground">Destructive actions require human approval · fully audited</p></div>

@@ -40,8 +40,17 @@ export function TelemetryPanel({ telemetry }: { telemetry: TelemetryOverview }) 
     );
   }
 
-  const peak = Math.max(1, ...telemetry.timeline.map((b) => b.count));
+  const peak = Math.max(1, telemetry.peak_per_hour, ...telemetry.timeline.map((b) => b.count));
   const maxSource = Math.max(1, ...telemetry.top_sources.map((s) => s.count));
+  const avg = telemetry.timeline.length ? Math.round(telemetry.total_events / telemetry.timeline.length) : 0;
+  const activeHours = telemetry.timeline.filter((b) => b.count > 0).length;
+
+  const stats = [
+    { label: "Total", value: compact(telemetry.total_events) },
+    { label: "Peak / hr", value: compact(telemetry.peak_per_hour) },
+    { label: "Avg / hr", value: compact(avg) },
+    { label: "Active hrs", value: `${activeHours}/${telemetry.window_hours}` },
+  ];
 
   return (
     <Panel
@@ -49,28 +58,39 @@ export function TelemetryPanel({ telemetry }: { telemetry: TelemetryOverview }) 
       eyebrow={`Last ${telemetry.window_hours}h · live from ClickHouse`}
       action={<StatusLabel tone="green">{compact(telemetry.total_events)} events</StatusLabel>}
     >
-      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div>
+      <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(220px,1fr)]">
+        <div className="min-w-0">
+          <div className="mb-3 grid grid-cols-4 gap-2">
+            {stats.map((s) => (
+              <div key={s.label} className="soc-inset px-3 py-2">
+                <p className="soc-label">{s.label}</p>
+                <p className="mt-0.5 text-lg font-semibold tabular-nums">{s.value}</p>
+              </div>
+            ))}
+          </div>
           <p className="soc-label mb-2">Events per hour</p>
           {telemetry.timeline.length ? (
-            <div className="flex h-32 items-end gap-1">
-              {telemetry.timeline.map((b) => (
-                <div key={b.bucket} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
-                  <span className="text-[9px] text-muted-foreground opacity-0 transition group-hover:opacity-100">{b.count}</span>
-                  <div
-                    className="w-full rounded-t bg-primary/70 transition group-hover:bg-primary"
-                    style={{ height: `${Math.max(4, (b.count / peak) * 100)}%` }}
-                    title={`${hourLabel(b.bucket)} · ${b.count}`}
-                  />
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="flex h-28 items-end gap-[3px]">
+                {telemetry.timeline.map((b, i) => (
+                  <div key={b.bucket} className="group flex h-full min-w-0 flex-1 flex-col justify-end" title={`${b.label ?? hourLabel(b.bucket)} · ${b.count} events`}>
+                    <div
+                      className={`w-full rounded-sm transition ${b.count > 0 ? "bg-primary/70 group-hover:bg-primary" : "bg-surface"}`}
+                      style={{ height: `${b.count > 0 ? Math.max(6, (b.count / peak) * 100) : 3}%` }}
+                    />
+                    <span className="mt-1 hidden text-center text-[8px] text-muted-foreground sm:block">
+                      {i % 4 === 0 ? (b.label ?? hourLabel(b.bucket)) : " "}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <p className="py-8 text-center text-xs text-muted-foreground">No events in the window.</p>
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:border-l lg:border-border lg:pl-5">
           <div>
             <p className="soc-label mb-2">Top sources</p>
             <div className="space-y-1.5">

@@ -12,6 +12,7 @@ Every query is tenant-scoped by :func:`aegis_core.connectors` — each aggregate
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter
@@ -46,10 +47,28 @@ def _empty(reason: str) -> dict[str, Any]:
         "reason": reason,
         "window_hours": _WINDOW_HOURS,
         "total_events": 0,
+        "peak_per_hour": 0,
         "timeline": [],
         "top_sources": [],
         "top_categories": [],
     }
+
+
+def _hour_key(bucket: Any) -> str:
+    """Normalize a ClickHouse hour bucket to a ``YYYY-MM-DD HH`` key."""
+    return str(bucket)[:13]
+
+
+def _densify(rows: list[dict[str, Any]], hours: int) -> list[dict[str, Any]]:
+    """Return a continuous per-hour series (missing hours filled with 0)."""
+    counts = {_hour_key(r.get("bucket")): int(r.get("c", 0)) for r in rows}
+    now_hour = datetime.now().replace(minute=0, second=0, microsecond=0)
+    series: list[dict[str, Any]] = []
+    for i in range(hours - 1, -1, -1):
+        slot = now_hour - timedelta(hours=i)
+        key = slot.strftime("%Y-%m-%d %H")
+        series.append({"bucket": slot.strftime("%Y-%m-%d %H:%M:%S"), "label": slot.strftime("%H:%M"), "count": counts.get(key, 0)})
+    return series
 
 
 @router.get("/overview")
@@ -72,11 +91,13 @@ async def telemetry_overview(tenant: CurrentTenant) -> dict[str, Any]:
         return _empty("ClickHouse not connected or unreachable")
 
     total = int(total_rows[0]["c"]) if total_rows else 0
+    series = _densify(timeline, h)
     return {
         "available": True,
         "window_hours": h,
         "total_events": total,
-        "timeline": [{"bucket": str(r.get("bucket")), "count": int(r.get("c", 0))} for r in timeline],
+        "peak_per_hour": max((b["count"] for b in series), default=0),
+        "timeline": series,
         "top_sources": [{"name": str(r.get("name") or "unknown"), "count": int(r.get("c", 0))} for r in top_sources],
         "top_categories": [{"name": str(r.get("name") or "unknown"), "count": int(r.get("c", 0))} for r in top_categories],
     }
