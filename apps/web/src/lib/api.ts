@@ -78,9 +78,20 @@ export interface RuleRecord {
   yaml: string;
   integration?: string | null;
   applied_at?: string;
+  monitor_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
+
+export interface MonitorRecord {
+  id: string;
+  name: string;
+  enabled: boolean;
+  monitor_type: string;
+  schedule?: { period?: { unit: string; interval: number } };
+}
+export const getMonitors = () =>
+  apiTry<{ available: boolean; monitors: MonitorRecord[]; reason?: string }>("/rules/monitors", { available: false, monitors: [] });
 
 export interface IncidentRecord {
   id: string;

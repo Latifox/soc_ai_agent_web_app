@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { MonitorsPanel } from "@/features/rules/monitors-panel";
 import { RulesWorkspace } from "@/features/rules/rules-workspace";
 import { getMetrics, getRules } from "@/lib/api";
 import type { WorkspaceMetric } from "@/lib/workspace-data";
@@ -11,8 +12,13 @@ export default async function RulesPage() {
   const strip: WorkspaceMetric[] = [
     { label: "Total rules", value: String(metrics.rules.total), detail: `${metrics.rules.enabled} enabled`, tone: "violet" },
     { label: "MITRE techniques", value: String(metrics.rules.mitre_techniques.length), detail: "covered", tone: "green" },
-    { label: "Deployed", value: String(rules.filter((r) => r.integration).length), detail: "on integrations", tone: "amber" },
+    { label: "Deployed", value: String(rules.filter((r) => r.monitor_id || r.integration).length), detail: "as monitors", tone: "amber" },
     { label: "Disabled", value: String(rules.filter((r) => !r.enabled).length), detail: "not running", tone: rules.some((r) => !r.enabled) ? "red" : "green" },
   ];
-  return <RulesWorkspace rules={rules} metrics={strip} />;
+  return (
+    <div className="bg-background pb-6">
+      <RulesWorkspace rules={rules} metrics={strip} />
+      <MonitorsPanel />
+    </div>
+  );
 }

@@ -40,6 +40,21 @@ async def list_rules(tenant: CurrentTenant) -> list[dict[str, Any]]:
     return rules_repo.list(tenant.tenant_id)
 
 
+@router.get("/monitors")
+async def list_monitors(tenant: CurrentTenant) -> dict[str, Any]:
+    """List the OpenSearch Alerting monitors deployed on the tenant's cluster.
+
+    Declared before ``/{rule_id}`` so the literal path wins over the id matcher.
+    """
+    client = opensearch_for_tenant(tenant.tenant_id, get_settings())
+    try:
+        monitors = client.list_monitors()
+        return {"available": True, "monitors": monitors}
+    except Exception as exc:  # noqa: BLE001 - unreachable/alerting-disabled is a real state
+        log.info("rule.monitors.unavailable", tenant_id=tenant.tenant_id, error=str(exc)[:160])
+        return {"available": False, "monitors": [], "reason": "OpenSearch alerting unavailable"}
+
+
 @router.post("", status_code=201)
 async def create_rule(body: RuleCreate, tenant: RulesWriter) -> dict[str, Any]:
     """Create a rule (version 1)."""
@@ -75,6 +90,70 @@ async def delete_rule(rule_id: str, tenant: RulesWriter) -> None:
         raise NotFoundError(f"rule {rule_id} not found")
 
 
+@router.get("/monitors/{monitor_id}")
+async def get_monitor(monitor_id: str, tenant: CurrentTenant) -> dict[str, Any]:
+    """Fetch one deployed OpenSearch monitor (full definition)."""
+    client = opensearch_for_tenant(tenant.tenant_id, get_settings())
+    monitor = client.get_monitor(monitor_id)
+    if monitor is None:
+        raise NotFoundError(f"monitor {monitor_id} not found")
+    return monitor
+
+
+@router.post("/monitors/{monitor_id}/toggle")
+async def toggle_monitor(monitor_id: str, tenant: RulesWriter) -> dict[str, Any]:
+    """Enable/disable a deployed monitor on the tenant's OpenSearch cluster."""
+    client = opensearch_for_tenant(tenant.tenant_id, get_settings())
+    current = client.get_monitor(monitor_id)
+    if current is None:
+        raise NotFoundError(f"monitor {monitor_id} not found")
+    monitor = current.get("monitor", current)
+    monitor["enabled"] = not bool(monitor.get("enabled", True))
+    client.update_monitor(monitor_id, monitor)
+    return {"id": monitor_id, "enabled": monitor["enabled"]}
+
+
+@router.delete("/monitors/{monitor_id}", status_code=204)
+async def delete_monitor(monitor_id: str, tenant: RulesWriter) -> None:
+    """Delete a deployed monitor from the tenant's OpenSearch cluster."""
+    client = opensearch_for_tenant(tenant.tenant_id, get_settings())
+    if not client.delete_monitor(monitor_id):
+        raise NotFoundError(f"monitor {monitor_id} not found")
+    # Detach it from any Aegis rule that owns it.
+    for r in rules_repo.list(tenant.tenant_id):
+        if r.get("monitor_id") == monitor_id:
+            rules_repo.update(tenant.tenant_id, r["id"], {"monitor_id": None})
+
+
+@router.post("/monitors/{monitor_id}/import", status_code=201)
+async def import_monitor(monitor_id: str, tenant: RulesWriter) -> dict[str, Any]:
+    """Import an existing OpenSearch monitor into Aegis as a managed rule."""
+    client = opensearch_for_tenant(tenant.tenant_id, get_settings())
+    fetched = client.get_monitor(monitor_id)
+    if fetched is None:
+        raise NotFoundError(f"monitor {monitor_id} not found")
+    m = fetched.get("monitor", fetched)
+    # Pull the Lucene/query_string out of the monitor's search input when present.
+    query = "*"
+    try:
+        filters = m["inputs"][0]["search"]["query"]["query"]["bool"]["filter"]
+        qs = next((f["query_string"]["query"] for f in filters if "query_string" in f), None)
+        query = qs or query
+    except Exception:  # noqa: BLE001 - best-effort extraction
+        pass
+    period = (m.get("schedule", {}).get("period") or {})
+    freq = f"{period.get('interval', 5)}{str(period.get('unit', 'MINUTES'))[0].lower()}"
+    title = m.get("name", "Imported monitor")
+    yaml_text = f"title: {title}\nseverity: medium\ntype: query\nenabled: {bool(m.get('enabled', True))}\nfrequency: {freq}\ndepth: 15m\ntags: [imported, opensearch]\nquery: {query}\n"
+    created = rules_repo.create(
+        tenant.tenant_id,
+        {"title": title, "severity": "medium", "type": "query", "enabled": bool(m.get("enabled", True)),
+         "yaml": yaml_text, "tags": ["imported", "opensearch"], "integration": "opensearch",
+         "monitor_id": monitor_id, "author": "imported"},
+    )
+    return created
+
+
 @router.post("/{rule_id}/apply", responses=_NOT_FOUND)
 async def apply_rule(rule_id: str, body: RuleApplyRequest, tenant: RulesWriter) -> dict[str, Any]:
     """Deploy a rule to a connected integration: bind it, enable it, bump version.
@@ -95,34 +174,35 @@ async def apply_rule(rule_id: str, body: RuleApplyRequest, tenant: RulesWriter) 
     if integration.get("status") == "disconnected":
         raise PermissionDeniedError(f"integration '{body.integration}' is not connected — test it first")
 
-    # Really deploy: push the rule as a document into the tenant's OpenSearch cluster
-    # (index ``t-{tenant}-detection-rules``). Other providers are bound as metadata only.
+    # Really deploy: compile the rule into an OpenSearch Alerting monitor and create/update
+    # it on the tenant's cluster (visible in OpenSearch Dashboards → Alerting → Monitors).
     deployment: dict[str, Any] = {"target": body.integration, "pushed": False}
+    monitor_id = rule.get("monitor_id")
     if body.provider_is_opensearch():
-        rule_doc = {
-            "rule_id": rule_id,
-            "tenant_id": tenant.tenant_id,
-            "title": rule.get("title"),
-            "severity": rule.get("severity"),
-            "type": rule.get("type"),
-            "tags": rule.get("tags", []),
-            "yaml": rule.get("yaml"),
-            "enabled": True,
-            "applied_at": _now_iso(),
-        }
+        import yaml as _yaml  # noqa: PLC0415
+        from aegis_detection.monitor import rule_to_monitor  # noqa: PLC0415
+
         client = opensearch_for_tenant(tenant.tenant_id, get_settings())
         try:
-            resp = client.index_doc(rule_doc, tenant_id=tenant.tenant_id, suffix="detection-rules", doc_id=rule_id)
-            deployment = {"target": "opensearch", "pushed": True, "index": resp.get("_index"), "result": resp.get("result")}
+            data = _yaml.safe_load(rule["yaml"]) or {}
+            data["enabled"] = True
+            monitor = rule_to_monitor(data, tenant_id=tenant.tenant_id)
+            if monitor_id:
+                resp = client.update_monitor(str(monitor_id), monitor)
+            else:
+                resp = client.create_monitor(monitor)
+                monitor_id = resp.get("_id")
+            deployment = {"target": "opensearch", "pushed": True, "monitor_id": monitor_id, "name": monitor["name"], "result": "updated" if rule.get("monitor_id") else "created"}
         except Exception as exc:  # noqa: BLE001 - surface a real failure to the caller
-            log.error("rule.deploy.opensearch.failed", tenant_id=tenant.tenant_id, error=str(exc)[:200])
-            raise PermissionDeniedError(f"deploy to OpenSearch failed: {str(exc)[:160]}") from exc
+            log.error("rule.deploy.monitor.failed", tenant_id=tenant.tenant_id, error=str(exc)[:200])
+            raise PermissionDeniedError(f"deploy monitor to OpenSearch failed: {str(exc)[:160]}") from exc
 
     patch = {
         "integration": body.integration,
         "enabled": True,
         "version": int(rule.get("version", 1)) + 1,
         "applied_at": _now_iso(),
+        "monitor_id": monitor_id,
         "deployment": deployment,
     }
     updated = rules_repo.update(tenant.tenant_id, rule_id, patch)

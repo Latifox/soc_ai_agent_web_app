@@ -104,6 +104,57 @@ class OpenSearchClient:
             return len(docs)
 
 
+    # ── OpenSearch Alerting (monitors) — cluster-level plugin API ────────────
+    def create_monitor(self, monitor: dict[str, Any]) -> dict[str, Any]:
+        """Create an alerting monitor (``POST _plugins/_alerting/monitors``)."""
+        with self._client() as client:
+            resp = client.post(f"{self._url}/_plugins/_alerting/monitors", json=monitor, auth=self._auth)
+            resp.raise_for_status()
+            return resp.json()
+
+    def get_monitor(self, monitor_id: str) -> dict[str, Any] | None:
+        """Fetch one monitor (``GET _plugins/_alerting/monitors/{id}``)."""
+        with self._client() as client:
+            resp = client.get(f"{self._url}/_plugins/_alerting/monitors/{monitor_id}", auth=self._auth)
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            return resp.json()
+
+    def update_monitor(self, monitor_id: str, monitor: dict[str, Any]) -> dict[str, Any]:
+        """Update an existing monitor (``PUT _plugins/_alerting/monitors/{id}``)."""
+        with self._client() as client:
+            resp = client.put(f"{self._url}/_plugins/_alerting/monitors/{monitor_id}", json=monitor, auth=self._auth)
+            resp.raise_for_status()
+            return resp.json()
+
+    def delete_monitor(self, monitor_id: str) -> bool:
+        with self._client() as client:
+            resp = client.delete(f"{self._url}/_plugins/_alerting/monitors/{monitor_id}", auth=self._auth)
+            return resp.status_code < 300
+
+    def list_monitors(self, size: int = 100) -> list[dict[str, Any]]:
+        """List monitors (``GET _plugins/_alerting/monitors/_search``)."""
+        body = {"size": size, "query": {"match_all": {}}}
+        with self._client() as client:
+            resp = client.post(f"{self._url}/_plugins/_alerting/monitors/_search", json=body, auth=self._auth)
+            if resp.status_code == 404:
+                return []
+            resp.raise_for_status()
+            hits = resp.json().get("hits", {}).get("hits", [])
+            out: list[dict[str, Any]] = []
+            for h in hits:
+                m = h.get("_source", {}).get("monitor", h.get("_source", {}))
+                out.append({
+                    "id": h.get("_id"),
+                    "name": m.get("name"),
+                    "enabled": m.get("enabled"),
+                    "monitor_type": m.get("monitor_type"),
+                    "schedule": m.get("schedule"),
+                })
+            return out
+
+
 def get_opensearch(settings: Settings) -> OpenSearchClient:
     """Construct the OpenSearch client from settings."""
     return OpenSearchClient(settings.opensearch_url, settings.opensearch_user, settings.opensearch_password)
