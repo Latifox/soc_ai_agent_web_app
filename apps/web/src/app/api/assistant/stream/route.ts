@@ -14,20 +14,31 @@ export const dynamic = "force-dynamic";
 
 const API_URL = process.env.AEGIS_API_URL ?? "http://localhost:8000";
 
+async function bearer(): Promise<string | null> {
+  try {
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      const supabase = await createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) return session.access_token;
+    }
+  } catch {
+    // Supabase not configured — fall through to the dev token.
+  }
+  return process.env.AEGIS_DEV_TOKEN ?? null;
+}
+
 export async function POST(req: NextRequest) {
-  // Verified Supabase session; the access token carries the tenant_id claim that
-  // AgentOS + MCP tools enforce downstream.
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) {
+  // Verified session token (Supabase in prod, AEGIS_DEV_TOKEN in local dev). The
+  // tenant_id claim is enforced downstream by the crew + tools.
+  const token = await bearer();
+  if (!token) {
     return new Response(JSON.stringify({ error: "unauthenticated" }), {
       status: 401,
       headers: { "content-type": "application/json" },
     });
   }
-  const token = session.access_token;
   const body = await req.text();
 
   const upstream = await fetch(`${API_URL}/api/v1/assistant/stream`, {
