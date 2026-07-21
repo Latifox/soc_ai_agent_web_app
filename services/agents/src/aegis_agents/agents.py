@@ -17,6 +17,10 @@ from aegis_agents.hooks import HOOKS
 from aegis_agents.models import balanced, fast, reasoner
 from aegis_agents.tools import (
     ioc_reputation,
+    opensearch_cluster_health,
+    opensearch_count,
+    opensearch_index_mapping,
+    opensearch_list_indices,
     opensearch_search,
     rule_backtest,
     rule_validate,
@@ -57,7 +61,7 @@ def build_triage(db: PostgresDb | None = None) -> Agent:
         name="Triage",
         role="Deduplicate, correlate and score incidents; decide auto-close vs escalate.",
         model=fast(),
-        tools=[opensearch_search],
+        tools=[opensearch_search, opensearch_count, opensearch_list_indices],
         tool_hooks=HOOKS,
         db=db,
         instructions=ins.TRIAGE,
@@ -71,7 +75,7 @@ def build_investigation(db: PostgresDb | None = None) -> Agent:
         name="Investigation",
         role="Enrich alerts, query telemetry, build a MITRE-mapped attack narrative.",
         model=reasoner(),
-        tools=[opensearch_search, ioc_reputation],
+        tools=[opensearch_search, opensearch_list_indices, opensearch_index_mapping, opensearch_count, opensearch_cluster_health, ioc_reputation],
         tool_hooks=HOOKS,
         db=db,
         instructions=ins.INVESTIGATION,

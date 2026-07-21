@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     opensearch_user: str = "admin"
     opensearch_password: str = "admin"
     opensearch_agent_server_url: str = "http://localhost:8001"
+    # Official OpenSearch MCP server (opensearch-mcp-server-py) — richer cluster tools for
+    # the crew (ListIndex/Search/Count/Explain/Msearch/ClusterHealth/GenericApi). Opt-in via
+    # AEGIS_MCP_ENABLED=1; run `python -m mcp_server_opensearch --transport stream --port 9900`.
+    opensearch_mcp_url: str = "http://localhost:9900/mcp"
 
     # ── Redis ───────────────────────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379/0"

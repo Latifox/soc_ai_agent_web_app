@@ -31,13 +31,18 @@ def _guardrails() -> list[Any]:
     return hooks
 
 
-def build_argus(db: PostgresDb | None = None) -> Team:
-    """Build the Argus supervisor team over the full crew."""
+def build_argus(db: PostgresDb | None = None, *, extra_tools: list[Any] | None = None) -> Team:
+    """Build the Argus supervisor team over the full crew.
+
+    ``extra_tools`` (e.g. a connected ``MultiMCPTools`` for the OpenSearch MCP server) are
+    attached at the team level so the leader can call them directly.
+    """
     crew = build_crew(db)
     return Team(
         name="Argus SOC",
         model=reasoner(),
         members=list(crew.values()),
+        tools=list(extra_tools) if extra_tools else None,
         db=db,
         instructions=ins.SUPERVISOR,
         pre_hooks=_guardrails(),

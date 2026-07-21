@@ -63,6 +63,33 @@ class OpenSearchClient:
             resp.raise_for_status()
             return int(resp.json().get("count", 0))
 
+    def list_indices(self, tenant_id: str) -> list[dict[str, Any]]:
+        """List the tenant's indices (``GET t-{tenant}-*/_cat/indices?format=json``)."""
+        index = self._index(tenant_id)
+        with self._client() as client:
+            resp = client.get(f"{self._url}/_cat/indices/{index}", params={"format": "json", "h": "index,docs.count,store.size,health"}, auth=self._auth)
+            if resp.status_code == 404:
+                return []
+            resp.raise_for_status()
+            return resp.json()
+
+    def index_mapping(self, tenant_id: str, suffix: str = "*") -> dict[str, Any]:
+        """Field mappings for the tenant's indices (``GET t-{tenant}-{suffix}/_mapping``)."""
+        index = self._index(tenant_id, suffix)
+        with self._client() as client:
+            resp = client.get(f"{self._url}/{index}/_mapping", auth=self._auth)
+            if resp.status_code == 404:
+                return {}
+            resp.raise_for_status()
+            return resp.json()
+
+    def cluster_health(self) -> dict[str, Any]:
+        """Cluster health (``GET _cluster/health``)."""
+        with self._client() as client:
+            resp = client.get(f"{self._url}/_cluster/health", auth=self._auth)
+            resp.raise_for_status()
+            return resp.json()
+
     def index_doc(
         self, doc: dict[str, Any], *, tenant_id: str, suffix: str, doc_id: str | None = None
     ) -> dict[str, Any]:

@@ -45,19 +45,20 @@ services:
       opensearch:
         condition: service_healthy
 
-  # OpenSearch Agent Server — agent tool/MCP layer (docs/10). Dev-bootstrap via pip;
-  # replace with a pinned image/Dockerfile for prod.
-  opensearch-agent-server:
+  # Official OpenSearch MCP server (opensearch-mcp-server-py) — richer cluster tools for
+  # the Argus crew over MCP (ListIndex/Search/Count/Explain/Msearch/ClusterHealth/…).
+  # Streamable-HTTP on :9900/mcp. Enable the crew to use it with AEGIS_MCP_ENABLED=1.
+  opensearch-mcp:
     image: python:3.12-slim
     command: >
-      sh -c "pip install --no-cache-dir opensearch-agent-server &&
-             opensearch-agent-server --with-mcp --host 0.0.0.0 --port 8001"
+      sh -c "pip install --no-cache-dir opensearch-mcp-server-py &&
+             python -m mcp_server_opensearch --transport stream --host 0.0.0.0 --port 9900"
     environment:
-      - OPENSEARCH_URL=http://opensearch:9200
-    ports: ["8001:8001"]
-    depends_on:
-      opensearch:
-        condition: service_healthy
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_USERNAME=${OPENSEARCH_USER:-admin}
+      - OPENSEARCH_PASSWORD=${OPENSEARCH_PASSWORD:-admin}
+      - OPENSEARCH_SSL_VERIFY=false
+    ports: ["9900:9900"]
 
   redis:
     image: redis:7-alpine

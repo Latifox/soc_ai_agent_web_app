@@ -27,6 +27,15 @@ if TYPE_CHECKING:
 log = get_logger(__name__)
 
 
+class _TextEvent:
+    """A one-shot run event (``.content``) so buffered replies flow through ``iter_text``."""
+
+    __slots__ = ("content",)
+
+    def __init__(self, content: str) -> None:
+        self.content = content
+
+
 class ArgusService:
     """Facade over the Argus crew for incident handling, chat, and rule engineering."""
 
@@ -83,16 +92,47 @@ class ArgusService:
             )
 
     def chat(self, tenant_id: str, message: str, *, session_id: str | None = None, stream: bool = True) -> Any:
-        """Analyst chat with the crew (AI Assistant); returns the run or event iterator."""
+        """Analyst chat with the crew (AI Assistant); returns the run or event iterator.
+
+        When ``AEGIS_MCP_ENABLED=1`` the crew runs with the OpenSearch MCP toolset connected
+        (ListIndex/Search/Count/Explain/…); that path buffers the reply (no token streaming).
+        """
+        from aegis_agents.mcp import build_mcp_tools, mcp_enabled  # noqa: PLC0415
+
+        if mcp_enabled():
+            return iter([_TextEvent(self._chat_with_mcp(tenant_id, message, session_id, build_mcp_tools))])
+
+        # Buffer the FINAL answer only — streaming the team's raw events leaks the leader's
+        # chain-of-thought and member hand-offs into the reply. iter_text sees one clean event.
         state = build_session_state(tenant_id=tenant_id)
         with argus_run_scope(tenant_id):
-            return self.team.run(
+            resp = self.team.run(
                 message,
-                stream=stream,
+                stream=False,
                 session_id=session_id,
                 session_state=state,
                 user_id=self._memory_user(tenant_id),
             )
+        return iter([_TextEvent(str(getattr(resp, "content", resp) or ""))])
+
+    def _chat_with_mcp(self, tenant_id: str, message: str, session_id: str | None, build_mcp_tools: Any) -> str:
+        """Run one chat turn with the OpenSearch MCP toolset connected. Returns the text."""
+        import asyncio  # noqa: PLC0415
+
+        async def _run() -> str:
+            mcp = build_mcp_tools()
+            async with mcp:  # connects the MCP session(s)
+                team = build_argus(self._db, extra_tools=[mcp])
+                with argus_run_scope(tenant_id):
+                    resp = await team.arun(
+                        message,
+                        session_id=session_id,
+                        session_state=build_session_state(tenant_id=tenant_id),
+                        user_id=self._memory_user(tenant_id),
+                    )
+                return str(getattr(resp, "content", resp) or "")
+
+        return asyncio.run(_run())
 
     def vibe_rule(self, tenant_id: str, prompt: str) -> Any:
         """NL -> detection rule via the Detection-Engineering agent (validated YAML)."""

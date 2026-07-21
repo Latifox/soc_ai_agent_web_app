@@ -1,9 +1,14 @@
-"""MCP tool wiring — connect the crew to the remote MCP servers.
+"""MCP tool wiring — connect the Argus crew to the official OpenSearch MCP server.
 
-Native in-process tools remain the default (zero infra). When the MCP sidecars are up
-(``mcp-threatintel --http``, ``mcp-soar --http``, and the upstream
-``opensearch-agent-server --with-mcp``), set ``AEGIS_MCP_ENABLED=1`` and attach
-``build_mcp_tools()`` to agents — same tool names, served out-of-process.
+Native in-process tools (``opensearch_search`` etc.) remain the zero-infra default. When the
+OpenSearch MCP server is running (``opensearch-mcp-server-py``:
+``python -m mcp_server_opensearch --transport stream --port 9900``) set ``AEGIS_MCP_ENABLED=1``
+to give the crew its richer cluster toolset over MCP — ListIndex, IndexMapping, SearchIndex,
+Count, Explain, Msearch, GetShards, ClusterHealth, and GenericOpenSearchApi.
+
+The MCP server is configured (via its own env: ``OPENSEARCH_URL``/``OPENSEARCH_USERNAME``/
+``OPENSEARCH_PASSWORD``) to point at the tenant's cluster; tools also accept ``opensearch_url``
+per call. Optional threat-intel / SOAR MCP sidecars can be added via env.
 """
 
 from __future__ import annotations
@@ -15,10 +20,11 @@ from aegis_core import get_logger, get_settings
 
 log = get_logger(__name__)
 
-DEFAULT_ENDPOINTS = {
-    "threatintel": "http://localhost:8933/mcp",
-    "soar": "http://localhost:8934/mcp",
-}
+# Tools the OpenSearch MCP server exposes (for prompt/awareness + optional filtering).
+OPENSEARCH_MCP_TOOLS = [
+    "ListIndexTool", "IndexMappingTool", "SearchIndexTool", "GetShardsTool",
+    "ClusterHealthTool", "CountTool", "ExplainTool", "MsearchTool", "GenericOpenSearchApiTool",
+]
 
 
 def mcp_enabled() -> bool:
@@ -27,18 +33,22 @@ def mcp_enabled() -> bool:
 
 
 def mcp_endpoints() -> list[str]:
-    """The MCP endpoints for this deployment (ours + opensearch-agent-server)."""
+    """The MCP endpoints for this deployment (OpenSearch MCP + optional sidecars)."""
     settings = get_settings()
-    urls = [
-        os.environ.get("MCP_THREATINTEL_URL", DEFAULT_ENDPOINTS["threatintel"]),
-        os.environ.get("MCP_SOAR_URL", DEFAULT_ENDPOINTS["soar"]),
-        f"{settings.opensearch_agent_server_url.rstrip('/')}/mcp",
-    ]
+    urls = [os.environ.get("OPENSEARCH_MCP_URL", settings.opensearch_mcp_url)]
+    if ti := os.environ.get("MCP_THREATINTEL_URL"):
+        urls.append(ti)
+    if soar := os.environ.get("MCP_SOAR_URL"):
+        urls.append(soar)
     return urls
 
 
 def build_mcp_tools() -> Any | None:
-    """Return ``MultiMCPTools`` over all endpoints, or ``None`` when disabled."""
+    """Return an unconnected ``MultiMCPTools`` over the endpoints, or ``None`` when disabled.
+
+    Agno connects it as an async context manager at run time — see ``ArgusService.chat``
+    which enters ``async with build_mcp_tools()`` and attaches it to the team for that run.
+    """
     if not mcp_enabled():
         return None
     from agno.tools.mcp import MultiMCPTools  # noqa: PLC0415
