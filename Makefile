@@ -9,12 +9,15 @@ down:
 logs:
 	docker compose -f infra/docker-compose.yml logs -f
 
-migrate:       ## run Postgres + ClickHouse migrations
-	uv run alembic -c infra/alembic.ini upgrade head
+migrate:       ## run ClickHouse migrations (Postgres schema is applied by Supabase)
 	uv run python infra/clickhouse_migrate.py
 
-seed:
+seed:          ## seed ClickHouse events + OpenSearch demo docs/template
 	uv run python infra/seed.py
+	uv run python infra/opensearch_setup.py
+
+datastack-up:  ## start ClickHouse, OpenSearch, Dashboards, Logstash
+	docker compose -f infra/docker-compose.yml up -d clickhouse opensearch opensearch-dashboards logstash
 
 api:
 	uv run uvicorn apps.api.main:app --reload --port 8000

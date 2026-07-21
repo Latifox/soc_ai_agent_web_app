@@ -1,9 +1,24 @@
 # Aegis dev stack (local-first). App Postgres + Auth come from the Supabase CLI
-# (`supabase start`), NOT this file. ClickHouse runs as local chdb (no container).
+# (`supabase start`), NOT this file. ClickHouse: chdb in-process on Linux/macOS; on
+# Windows use the `clickhouse` service below (CLICKHOUSE_BACKEND=server).
 # Object archive is local ./data (no MinIO/S3). See docs/02, docs/10.
 name: aegis
 
 services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    environment:
+      - CLICKHOUSE_DB=aegis
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports: ["8123:8123", "9000:9000"]
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    volumes: ["clickhouse-data:/var/lib/clickhouse"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
   opensearch:
     image: opensearchproject/opensearch:2.17.1
     environment:
@@ -21,6 +36,30 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
+
+  # Web UI for OpenSearch (http://localhost:5601). ClickHouse's built-in Play UI is at
+  # http://localhost:8123/play — no extra container needed.
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.17.1
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports: ["5601:5601"]
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  # Log shipper (also deployable standalone on a VPS — see infra/logstash/README.md).
+  logstash:
+    image: opensearchproject/logstash-oss-with-opensearch-output-plugin:8.9.0
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports: ["5044:5044", "5514:5514/udp", "5514:5514/tcp"]
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    depends_on:
+      opensearch:
+        condition: service_healthy
 
   # OpenSearch Agent Server — agent tool/MCP layer (docs/10). Dev-bootstrap via pip;
   # replace with a pinned image/Dockerfile for prod.
@@ -84,5 +123,6 @@ services:
         condition: service_healthy
 
 volumes:
+  clickhouse-data:
   opensearch-data:
   langfuse-db:

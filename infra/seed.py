@@ -30,7 +30,7 @@ def _values() -> str:
 
 _INSERT = (
     "INSERT INTO aegis.events "
-    "(tenant_id, ts, source, index, host_name, user_name, src_ip, dst_ip, dst_port, "
+    "(tenant_id, ts, source, `index`, host_name, user_name, src_ip, dst_ip, dst_port, "
     "event_category, event_type, event_action, raw, ecs) VALUES\n" + _values()
 )
 

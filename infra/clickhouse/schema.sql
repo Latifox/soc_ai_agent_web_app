@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS aegis.events (
   event_id       UUID DEFAULT generateUUIDv4(),
   ts             DateTime64(3) DEFAULT now64(3),
   source         LowCardinality(String),
-  index          LowCardinality(String),
+  `index`        LowCardinality(String),
   host_name      String,
   user_name      String,
   src_ip         String,

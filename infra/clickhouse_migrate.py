@@ -15,13 +15,9 @@ _SCHEMA = Path(__file__).parent / "clickhouse" / "schema.sql"
 
 
 def _statements(sql: str) -> list[str]:
-    out: list[str] = []
-    for chunk in sql.split(";"):
-        lines = [ln for ln in chunk.splitlines() if not ln.strip().startswith("--")]
-        stmt = "\n".join(lines).strip()
-        if stmt:
-            out.append(stmt)
-    return out
+    # Strip comment lines BEFORE splitting: comments may contain semicolons.
+    body = "\n".join(ln for ln in sql.splitlines() if not ln.strip().startswith("--"))
+    return [stmt.strip() for stmt in body.split(";") if stmt.strip()]
 
 
 def main() -> None:
