@@ -5,6 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 
+const SUPABASE_CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+);
+
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -18,26 +22,56 @@ export function LoginForm() {
     e.preventDefault();
     setPending(true);
     setError(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setPending(false);
-    if (error) return setError(error.message);
-    router.replace(params.get("next") ?? "/dashboard");
-    router.refresh();
+    try {
+      if (!SUPABASE_CONFIGURED) {
+        // Dev mode: server-validated credentials + httpOnly session cookie.
+        const resp = await fetch("/api/auth/dev-login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!resp.ok) {
+          const data = (await resp.json().catch(() => ({}))) as { error?: string };
+          setError(data.error ?? "Invalid email or password");
+          return;
+        }
+      } else {
+        const supabase = createClient();
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          setError(error.message);
+          return;
+        }
+      }
+      router.replace(params.get("next") ?? "/dashboard");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign-in failed");
+    } finally {
+      setPending(false);
+    }
   }
 
   async function sendMagicLink() {
     if (!email) return setError("Enter your email first.");
+    if (!SUPABASE_CONFIGURED) {
+      return setError("Magic links need Supabase — run `supabase start` and set NEXT_PUBLIC_SUPABASE_*.");
+    }
     setPending(true);
     setError(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${location.origin}/auth/callback` },
-    });
-    setPending(false);
-    if (error) return setError(error.message);
-    setMagicSent(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${location.origin}/auth/callback` },
+      });
+      if (error) return setError(error.message);
+      setMagicSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send magic link");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -84,6 +118,12 @@ export function LoginForm() {
       >
         Email me a magic link
       </button>
+      {!SUPABASE_CONFIGURED && (
+        <p className="rounded-lg border border-violet-500/25 bg-violet-500/5 px-3 py-2 text-xs text-muted-foreground">
+          Local dev mode — sign in with <code className="font-mono">admin@demo.local</code> /{" "}
+          <code className="font-mono">aegis-demo</code>. Configure Supabase for real accounts.
+        </p>
+      )}
     </form>
   );
 }

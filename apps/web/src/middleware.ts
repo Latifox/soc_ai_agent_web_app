@@ -13,9 +13,24 @@ const PUBLIC_PATHS = ["/login", "/auth"];
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  // Dev bridge: without a local Supabase (`supabase start`), skip session handling so
-  // the console stays viewable; the API layer falls back to AEGIS_DEV_TOKEN.
+  // Dev bridge: without a local Supabase (`supabase start`), authentication is handled
+  // by /api/auth/dev-login (httpOnly cookie); the API layer uses AEGIS_DEV_TOKEN.
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    const { pathname } = request.nextUrl;
+    const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p)) || pathname.startsWith("/api");
+    const authed = request.cookies.get("aegis_dev_session")?.value === "1";
+    if (!authed && !isPublic) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+    if (authed && pathname === "/login") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
     return response;
   }
 
