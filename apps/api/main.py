@@ -33,6 +33,10 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         service_name=settings.otel_service_name,
         otlp_endpoint=settings.otel_exporter_otlp_endpoint or None,
     )
+    if settings.aegis_env == "dev":
+        from apps.api.dev_seed import seed_dev_data  # noqa: PLC0415
+
+        seed_dev_data()
     log.info("aegis-api.startup", env=settings.aegis_env)
     yield
     log.info("aegis-api.shutdown")

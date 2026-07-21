@@ -18,6 +18,7 @@ from apps.api.routers import (
     cases,
     incidents,
     integrations,
+    metrics,
     rules,
     search,
 )
@@ -32,6 +33,7 @@ router.include_router(integrations.router)
 router.include_router(approvals.router)
 router.include_router(autonomy.router)
 router.include_router(search.router)
+router.include_router(metrics.router)
 
 
 @router.get("/")
