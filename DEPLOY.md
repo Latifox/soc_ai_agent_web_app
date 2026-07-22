@@ -24,6 +24,19 @@ Create the three services pointing at the same GitHub repo:
 2. **api** → Settings → Root Directory = `/`, Config-as-code path = `railway.api.json`.
 3. **agents** → Settings → Root Directory = `/`, Config-as-code path = `railway.agents.json`.
 
+## Build failed immediately (~4s) at the repo root?
+
+That means the service is trying to build the **whole monorepo** (both Node and Python are
+present at the root, so the auto-builder can't decide). Fix = point each service at its subtree:
+
+- This service is the **web** app → Settings → **Root Directory = `apps/web`**, then Deploy.
+  It picks up `apps/web/railway.json` (Node build, `npm run build` / `npm run start`).
+- For the **api/agents**, keep Root Directory `/` but set **Config Path** to `railway.api.json`
+  / `railway.agents.json`. The root `nixpacks.toml` forces a Python build (`uv sync`) so the
+  root `package.json` doesn't trick Railway into a Node build.
+
+One Railway service = one subtree. Don't deploy the bare repo root with default settings.
+
 ## Minimal deploy (Railway $5 trial): web + api only
 
 The **agents** service is optional. The interactive Argus assistant runs *in-process inside the

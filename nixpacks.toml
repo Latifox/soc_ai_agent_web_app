@@ -1,0 +1,11 @@
+# Python build for the api + agents services (Railway Root Directory = repo root "/").
+# Forces the Python provider so the root package.json doesn't trick Railway into a Node build.
+# The web service builds from apps/web and ignores this file. Start command comes from
+# railway.api.json / railway.agents.json (deploy.startCommand).
+providers = ["python"]
+
+[phases.setup]
+nixPkgs = ["python313", "gcc"]
+
+[phases.install]
+cmds = ["pip install uv", "uv sync --no-dev"]
