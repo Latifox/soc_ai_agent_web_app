@@ -1,0 +1,20 @@
+# Keep the Python image build context small. apps/web is a Node app and NOT a uv workspace
+# member, so it is not needed by the api/agents image.
+.git
+.gitignore
+.venv
+**/.venv
+node_modules
+**/node_modules
+apps/web
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.env
+.env.*
+*.log
+data
+docs
+*.png

@@ -31,9 +31,9 @@ present at the root, so the auto-builder can't decide). Fix = point each service
 
 - This service is the **web** app → Settings → **Root Directory = `apps/web`**, then Deploy.
   It picks up `apps/web/railway.json` (Node build, `npm run build` / `npm run start`).
-- For the **api/agents**, keep Root Directory `/` but set **Config Path** to `railway.api.json`
-  / `railway.agents.json`. The root `nixpacks.toml` forces a Python build (`uv sync`) so the
-  root `package.json` doesn't trick Railway into a Node build.
+- For the **api/agents**, set Root Directory `/` and **Config Path** to `railway.api.json`
+  / `railway.agents.json`. Those force `builder: DOCKERFILE` against the root `Dockerfile`
+  (Python + `uv sync`), so Railway can't auto-detect the Node app and build the wrong thing.
 
 One Railway service = one subtree. Don't deploy the bare repo root with default settings.
 
