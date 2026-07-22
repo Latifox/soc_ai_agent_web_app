@@ -9,6 +9,7 @@ extend with full RBAC / permission checks.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Annotated, Any
 
 import jwt
@@ -19,6 +20,37 @@ from aegis_core import Settings, TenantContext, get_settings, set_tenant_context
 from aegis_core.errors import AuthError
 
 _bearer = HTTPBearer(auto_error=False)
+
+
+@lru_cache(maxsize=4)
+def _jwks_client(jwks_url: str):  # noqa: ANN202 - PyJWKClient, cached per URL
+    """Cached JWKS client for a Supabase project (fetches + caches signing keys)."""
+    from jwt import PyJWKClient  # noqa: PLC0415
+
+    return PyJWKClient(jwks_url)
+
+
+def _decode_supabase_jwt(token: str, settings: Settings) -> dict[str, Any]:
+    """Verify a Supabase access token, supporting both signing schemes.
+
+    Supabase signs access tokens either with the legacy shared HS256 secret
+    (``SUPABASE_JWT_SECRET``) or, on projects using JWT signing keys, with an asymmetric
+    key (ES256/RS256) published at the project's JWKS endpoint. We pick the path from the
+    token's ``alg`` header so either configuration works without extra setup.
+    """
+    header = jwt.get_unverified_header(token)
+    alg = str(header.get("alg", "HS256"))
+    if alg == "HS256":
+        return jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+    # Asymmetric (ES256/RS256): fetch the matching public key from the project's JWKS.
+    jwks_url = f"{settings.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+    signing_key = _jwks_client(jwks_url).get_signing_key_from_jwt(token)
+    return jwt.decode(token, signing_key.key, algorithms=[alg], options={"verify_aud": False})
 
 
 def get_app_settings() -> Settings:
@@ -43,14 +75,7 @@ def require_user(
     if credentials is None or not credentials.credentials:
         raise AuthError("Missing bearer token")
     try:
-        payload: dict[str, Any] = jwt.decode(
-            credentials.credentials,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            # Supabase tokens carry aud="authenticated"; audience checking is
-            # deferred to the JWKS hardening step (BE-03).
-            options={"verify_aud": False},
-        )
+        payload: dict[str, Any] = _decode_supabase_jwt(credentials.credentials, settings)
     except jwt.PyJWTError as exc:
         raise AuthError(f"Invalid token: {exc}") from exc
 
