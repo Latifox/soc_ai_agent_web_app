@@ -22,4 +22,5 @@ COPY . /app
 RUN uv sync --all-packages
 
 # Default = api. The agents service overrides this via railway.agents.json startCommand.
-CMD ["/app/.venv/bin/python", "-m", "uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so ${PORT} (injected by Railway) is expanded at runtime.
+CMD ["/bin/sh", "-c", "/app/.venv/bin/python -m uvicorn apps.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
